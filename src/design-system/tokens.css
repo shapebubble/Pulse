@@ -1,0 +1,94 @@
+/*
+  PULSE — THE QUARTERLY — DESIGN TOKENS
+  Direction: Editorial weight. Newsreader + IBM Plex. Oxblood. Sharp corners.
+*/
+
+:root {
+
+  /* ─── Colour ──────────────────────────────────────────────────── */
+
+  --color-paper:      #F6F4EF;   /* page background */
+  --color-surface:    #FFFFFF;   /* cards, inputs */
+  --color-surface-2:  #FBFAF6;   /* expanded drawer, subtle inset */
+  --color-ink:        #1A1714;   /* primary text */
+  --color-ink-45:     #6B645C;   /* secondary, meta */
+  --color-ink-light:  #9A938A;   /* placeholder, faded */
+  --color-oxblood:    #7C1D2B;   /* signature — action, active, kicker */
+  --color-ox-wash:    #F2E7E6;   /* selected chip bg, tint */
+  --color-ox-border:  #E3C9C8;   /* selected chip border */
+  --color-amber:      #B8801F;   /* draft status */
+  --color-amber-light:#EAD9B0;   /* draft status: unfilled half */
+  --color-green:      #2F6B3C;   /* ready, posted */
+  --color-hairline:   #E2DDD3;   /* borders, rules */
+  --color-hairline-2: #DED8CC;   /* slightly stronger border */
+  --color-hairline-3: #D2CCC0;   /* inactive nav-arrow border */
+  --color-disabled-bg:#EFEBE2;   /* disabled button bg */
+  --color-disabled-text:#B6AEA2; /* disabled button text */
+  --color-linkedin:   #0A66C2;   /* Post to LinkedIn button only */
+  --color-post-text:  #221E19;   /* post preview body text */
+
+  /* ─── Legacy aliases (globals.css + existing code) ───────────── */
+  --color-bg:          var(--color-paper);
+  --color-text:        var(--color-ink);
+  --color-text-muted:  var(--color-ink-45);
+  --color-accent:      var(--color-oxblood);
+  --color-border:      var(--color-hairline);
+  --color-accent-glow: rgba(124, 29, 43, 0.2);
+
+  /* ─── Typography ────────────────────────────────────────────── */
+
+  --font-serif: var(--font-newsreader), 'Newsreader', Georgia, serif;
+  --font-sans:  var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:  var(--font-plex-mono), 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Aliases */
+  --font-family:       var(--font-sans);
+  --font-size-base:    16px;
+  --line-height-normal:1.6;
+
+  /* ─── Spacing (base 8) ──────────────────────────────────────── */
+
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-11: 44px;  /* touch target */
+  --space-12: 48px;  /* button height */
+  --space-16: 64px;
+
+  /* ─── Radius — 0 by intent ──────────────────────────────────── */
+  /* Everything is sharp. The only curves are the ECG pulse mark caps. */
+
+  --radius:      0;
+  --radius-full: 9999px;  /* pills only if ever needed */
+
+  /* ─── Touch targets ─────────────────────────────────────────── */
+
+  --touch-target: 44px;
+
+  /* ─── Shadows ───────────────────────────────────────────────── */
+
+  --shadow-focus:  0 0 0 2px var(--color-oxblood);
+  --shadow-card:   0 1px 0 rgba(0,0,0,.04), 0 50px 90px -55px rgba(40,30,20,.5);
+
+  /* ─── Transitions ───────────────────────────────────────────── */
+
+  --transition-fast:   100ms ease;
+  --transition-normal: 150ms ease;
+
+  /* ─── Layout ────────────────────────────────────────────────── */
+
+  --nav-padding-x-desk: 64px;
+  --nav-padding-x-mob:  22px;
+  --max-width-home:     860px;
+  --max-width-preview:  760px;
+  --max-width-history:  920px;
+  --max-width-account:  760px;
+  --max-width-auth:     400px;
+
+}

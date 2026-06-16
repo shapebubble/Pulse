@@ -1,0 +1,251 @@
+/*
+  PULSE DESIGN SYSTEM — COMPONENTS
+  Reusable CSS classes built on tokens.
+  Never override tokens here — reference them.
+*/
+
+/* ─── Glass surface ──────────────────────────────────────────── */
+
+.glass {
+  background:            var(--glass-bg);
+  border:                var(--glass-border);
+  backdrop-filter:       var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+
+/* ─── Cards ──────────────────────────────────────────────────── */
+
+.card {
+  background:   var(--glass-bg);
+  border:       var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
+  padding:       var(--card-padding-y) var(--card-padding-x);
+}
+
+.card--raised {
+  background: var(--color-surface-raised);
+}
+
+
+/* ─── Buttons ────────────────────────────────────────────────── */
+
+.btn {
+  display:         inline-flex;
+  align-items:     center;
+  justify-content: center;
+  gap:             var(--space-2);
+  padding:         var(--btn-padding-y) var(--btn-padding-x);
+  border-radius:   var(--radius-md);
+  font-size:       var(--font-size-xs);
+  font-weight:     var(--font-weight-medium);
+  font-family:     inherit;
+  cursor:          pointer;
+  transition:      opacity var(--transition-normal);
+  min-height:      var(--touch-target);
+  border:          none;
+}
+
+.btn:focus-visible {
+  outline:        2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor:  not-allowed;
+}
+
+/* Primary — solid accent */
+.btn-primary {
+  background: var(--color-accent);
+  color:      var(--color-text-on-accent);
+}
+.btn-primary:not(:disabled):hover { opacity: 0.9; }
+
+/* Secondary — glass */
+.btn-secondary {
+  background:   var(--glass-bg);
+  border:       var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color:        var(--color-text-muted);
+}
+.btn-secondary:not(:disabled):hover { opacity: 0.8; }
+
+/* Destructive / LinkedIn — supply custom background via inline style */
+.btn-brand {
+  color: var(--color-text-on-accent);
+}
+.btn-brand:not(:disabled):hover { opacity: 0.9; }
+
+/* Ghost — text only */
+.btn-ghost {
+  background: transparent;
+  border:     none;
+  color:      var(--color-text-muted);
+  padding:    var(--space-2) var(--space-2);
+  min-height: var(--touch-target);
+}
+.btn-ghost:not(:disabled):hover { opacity: 0.8; }
+
+/* Icon button — square, no text */
+.btn-icon {
+  width:  var(--touch-target);
+  height: var(--touch-target);
+  padding: 0;
+  border-radius: var(--radius-full);
+}
+
+
+/* ─── Form inputs ────────────────────────────────────────────── */
+
+.input {
+  display:       block;
+  width:         100%;
+  padding:       var(--btn-padding-y) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size:     var(--font-size-sm);
+  font-family:   inherit;
+  color:         var(--color-text);
+  background:    var(--glass-bg);
+  border:        1px solid var(--color-border);
+  outline:       none;
+  transition:    border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.input:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow:   var(--shadow-focus);
+}
+
+.textarea {
+  display:       block;
+  width:         100%;
+  padding:       var(--card-padding-y) var(--card-padding-x);
+  border-radius: var(--radius-xl);
+  font-size:     var(--font-size-sm);
+  font-family:   inherit;
+  line-height:   var(--line-height-relaxed);
+  color:         var(--color-text);
+  background:    var(--glass-bg);
+  border:        1px solid var(--color-border);
+  outline:       none;
+  resize:        none;
+  transition:    border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.textarea:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow:   var(--shadow-focus);
+}
+
+
+/* ─── Labels ─────────────────────────────────────────────────── */
+
+/* Section label — uppercase tracking, e.g. "Topic areas" headings */
+.label-section {
+  font-size:      var(--font-size-xs);
+  font-weight:    var(--font-weight-medium);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color:          var(--color-text-muted);
+}
+
+/* Topic chip — e.g. "AI × Design" above question */
+.label-topic {
+  font-size:      var(--font-size-xs);
+  font-weight:    var(--font-weight-medium);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color:          var(--color-accent);
+}
+
+
+/* ─── Status badge ───────────────────────────────────────────── */
+
+.badge {
+  display:        inline-flex;
+  align-items:    center;
+  padding:        var(--space-1) var(--space-2);
+  border-radius:  var(--radius-full);
+  font-size:      var(--font-size-xs);
+  font-weight:    var(--font-weight-medium);
+}
+
+
+/* ─── Nav ────────────────────────────────────────────────────── */
+
+.nav-link {
+  font-size:   var(--font-size-xs);
+  color:       var(--color-text-muted);
+  transition:  opacity var(--transition-normal);
+  text-decoration: none;
+}
+.nav-link:hover        { opacity: 1; }
+.nav-link:focus-visible {
+  outline:        2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius:  4px;
+}
+.nav-link--active {
+  font-weight: var(--font-weight-medium);
+  opacity:     1;
+}
+
+
+/* ─── Page shell ─────────────────────────────────────────────── */
+
+.page-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         var(--nav-padding-y) var(--nav-padding-x);
+}
+
+.page-content {
+  flex:       1;
+  display:    flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding:    0 var(--space-4) var(--space-16);
+}
+
+.page-content--top {
+  justify-content: flex-start;
+  padding-top:     var(--space-4);
+}
+
+.content-column {
+  width:     100%;
+  max-width: var(--max-width-content);
+}
+
+.content-column--narrow  { max-width: var(--max-width-narrow); }
+.content-column--form    { max-width: var(--max-width-form); }
+
+
+/* ─── Divider ────────────────────────────────────────────────── */
+
+.divider {
+  height:     1px;
+  background: var(--color-border);
+}
+
+
+/* ─── Utility ────────────────────────────────────────────────── */
+
+.sr-only {
+  position:   absolute;
+  width:      1px;
+  height:     1px;
+  padding:    0;
+  margin:     -1px;
+  overflow:   hidden;
+  clip:       rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

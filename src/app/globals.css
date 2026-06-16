@@ -1,26 +1,45 @@
+@import "../design-system/tokens.css";
+@import "../design-system/components.css";
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:  var(--color-paper);
+  color:       var(--color-ink);
+  font-family: var(--font-sans);
+  font-size:   var(--font-size-base);
+  line-height: var(--line-height-normal);
+  min-height:  100dvh;
+  overflow-x:  hidden;
 }
+
+textarea {
+  resize:      none;
+  outline:     none;
+  font-family: inherit;
+}
+
+textarea:focus-visible,
+input:focus-visible {
+  outline:      none;
+  border-color: var(--color-ink) !important;
+}
+
+button:focus-visible {
+  outline:        2px solid var(--color-oxblood);
+  outline-offset: 2px;
+}
+
+a:focus-visible {
+  outline:        2px solid var(--color-oxblood);
+  outline-offset: 2px;
+}
+
+button { cursor: pointer; }
+
+::selection { background: var(--color-ox-wash); }
+
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-hairline); border-radius: 0; }
