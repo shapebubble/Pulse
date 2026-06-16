@@ -1,225 +1,221 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { Nav } from '@/components/Nav'
+import { createClient } from '@/lib/supabase-browser'
 
 type Status = 'new' | 'draft' | 'done' | 'published' | 'skipped'
 
 interface HistoryItem {
-  id: string
+  post_id: string
+  question_id: string
+  question_text: string
   topic: string
-  question: string
-  answer?: string
-  post?: string
+  week_start: string
+  answer: string
+  generated_post: string
+  format: string
   status: Status
-  date: string
+  created_at: string
 }
 
-const DEMO: HistoryItem[] = [
-  {
-    id: '4',
-    topic: 'Hiring',
-    question: "What's the first thing you actually look for in a senior design portfolio?",
-    status: 'new',
-    date: '11 Jun',
-  },
-  {
-    id: '3',
-    topic: 'Career & Craft',
-    question: 'Is a portfolio still the right way to prove design judgment in 2026?',
-    answer: 'I think it depends entirely on what the portfolio contains...',
-    status: 'draft',
-    date: '11 Jun',
-  },
-  {
-    id: '2',
-    topic: 'Design Systems',
-    question: 'Should every team maintain its own components, or inherit one shared system?',
-    answer: 'Shared system is the answer in theory. In practice it depends on team maturity.',
-    post: 'Everyone wants a shared design system. Few teams are actually ready for one...',
-    status: 'done',
-    date: '12 Jun',
-  },
-  {
-    id: '1',
-    topic: 'AI × Design',
-    question: 'AI tools can now generate a finished UI in an afternoon. Does that make UX designers more valuable, or less?',
-    answer: "Honestly? More valuable. Generating screens was never the hard part — deciding what deserves to exist is.",
-    post: "Everyone keeps asking whether AI makes designers obsolete. Wrong question.\n\nI watched a tool generate a full UI in an afternoon last week. It was fine. Competent. Completely average.\n\nThe value was never in producing the screens. It was in knowing which screens not to build.\n\nWe're not less valuable. We're finally free to do the part that was always the job.",
-    status: 'published',
-    date: '14 Jun',
-  },
-]
-
 function StatusBadge({ status }: { status: Status }) {
-  if (status === 'new') return (
+  if (status === 'published') return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 9,
-      border: '1px solid var(--color-oxblood)', color: 'var(--color-oxblood)',
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
-      textTransform: 'uppercase', padding: '6px 12px',
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', background: 'var(--color-green)', color: '#fff',
+    }}>
+      <span style={{ fontSize: 10 }}>✓</span> Posted
+    </span>
+  )
+  if (status === 'done') return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', border: '1px solid var(--color-green)', color: 'var(--color-green)',
+    }}>
+      <span style={{ fontSize: 10 }}>✓</span> Ready
+    </span>
+  )
+  if (status === 'draft') return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', border: '1px solid var(--color-amber)', color: 'var(--color-amber)',
+    }}>
+      <span style={{ display: 'inline-block', width: 16, height: 7, background: 'linear-gradient(to right, var(--color-amber) 50%, transparent 50%)', border: '1px solid var(--color-amber)' }} />
+      Draft
+    </span>
+  )
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', border: '1px solid var(--color-oxblood)', color: 'var(--color-oxblood)',
     }}>
       <span style={{ width: 7, height: 7, background: 'var(--color-oxblood)', display: 'inline-block' }} />
       New
     </span>
   )
+}
 
-  if (status === 'draft') return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 9,
-      border: '1px solid var(--color-amber)', color: '#9A6A14',
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
-      textTransform: 'uppercase', padding: '6px 12px',
-    }}>
-      <span style={{
-        display: 'inline-block', width: 16, height: 7,
-        background: 'linear-gradient(90deg, var(--color-amber) 50%, var(--color-amber-light) 50%)',
-      }} />
-      Draft
-    </span>
-  )
-
-  if (status === 'done') return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 9,
-      border: '1px solid var(--color-green)', color: 'var(--color-green)',
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
-      textTransform: 'uppercase', padding: '6px 12px',
-    }}>
-      ✓ Ready
-    </span>
-  )
-
-  if (status === 'published') return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 9,
-      background: 'var(--color-green)', color: '#FFFFFF',
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
-      textTransform: 'uppercase', padding: '7px 13px',
-    }}>
-      ✓ Posted
-    </span>
-  )
-
-  return (
-    <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
-      textTransform: 'uppercase', color: 'var(--color-ink-light)',
-    }}>
-      Skipped
-    </span>
-  )
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export default function HistoryPage() {
-  const [expanded, setExpanded] = useState<string | null>('1')
+  const supabase = createClient()
+  const [items, setItems]       = useState<HistoryItem[]>([])
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [loading, setLoading]   = useState(true)
 
-  const total   = DEMO.length
-  const posted  = DEMO.filter(d => d.status === 'published').length
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Join posts with questions
+      const { data: posts } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          question_id,
+          answer,
+          generated_post,
+          format,
+          status,
+          created_at,
+          questions (id, text, topic, week_start)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (posts) {
+        const mapped: HistoryItem[] = posts.map((p: any) => ({
+          post_id:        p.id,
+          question_id:    p.question_id,
+          question_text:  p.questions?.text ?? '',
+          topic:          p.questions?.topic ?? '',
+          week_start:     p.questions?.week_start ?? '',
+          answer:         p.answer ?? '',
+          generated_post: p.generated_post ?? '',
+          format:         p.format ?? 'question-led',
+          status:         p.status ?? 'new',
+          created_at:     p.created_at,
+        }))
+        setItems(mapped)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
       <Nav active="history" />
 
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 24px 72px' }}>
-        <div style={{ width: '100%', maxWidth: 'var(--max-width-history)', padding: '64px 0' }}>
+        <div style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
 
-          {/* Page header */}
-          <div style={{
-            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-            borderBottom: '1px solid var(--color-ink)', paddingBottom: 18,
+          <h1 style={{
+            fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34,
+            borderBottom: '1px solid var(--color-ink)', paddingBottom: 18, marginBottom: 0,
           }}>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34, color: 'var(--color-ink)' }}>
-              History
-            </h1>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.12em', color: 'var(--color-ink-45)' }}>
-              {total} questions · {posted} posted
-            </span>
-          </div>
+            History
+          </h1>
 
-          {/* List */}
-          {DEMO.map(item => {
-            const isOpen = expanded === item.id
-            return (
-              <div key={item.id} style={{ borderBottom: '1px solid var(--color-hairline)' }}>
-                <div style={{ padding: '28px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 32 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-oxblood)' }}>
+          {loading && (
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', color: 'var(--color-ink-45)', marginTop: 48 }}>
+              LOADING
+            </p>
+          )}
+
+          {!loading && items.length === 0 && (
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--color-ink-45)', marginTop: 48 }}>
+              No posts yet — answer your first question on the home screen.
+            </p>
+          )}
+
+          <div style={{ marginTop: 32 }}>
+            {items.map(item => {
+              const isOpen = expanded === item.post_id
+              return (
+                <div key={item.post_id} style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(isOpen ? null : item.post_id)}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                      width: '100%', padding: '24px 0', background: 'none', border: 'none',
+                      cursor: 'pointer', textAlign: 'left', gap: 24,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
+                        textTransform: 'uppercase', color: 'var(--color-oxblood)', marginBottom: 8,
+                        display: 'flex', alignItems: 'center', gap: 16,
+                      }}>
                         {item.topic}
+                        <span style={{ color: 'var(--color-ink-45)' }}>{formatDate(item.created_at)}</span>
                       </div>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 23, lineHeight: 1.3, marginTop: 8, color: 'var(--color-ink)' }}>
-                        {item.question}
-                      </div>
-                      {item.status === 'new' && !isOpen && (
-                        <Link href="/" style={{ display: 'inline-block', marginTop: 12, fontSize: 13, color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                          Answer this question →
-                        </Link>
-                      )}
+                      <p style={{
+                        fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--color-ink)',
+                        lineHeight: 1.4, margin: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {item.question_text}
+                      </p>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexShrink: 0 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ink-light)' }}>
-                        {item.date}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
                       <StatusBadge status={item.status} />
-                      <button
-                        type="button"
-                        aria-expanded={isOpen}
-                        aria-controls={`detail-${item.id}`}
-                        onClick={() => setExpanded(isOpen ? null : item.id)}
-                        style={{ background: 'none', border: 'none', color: isOpen ? 'var(--color-ink-45)' : 'var(--color-ink-light)', fontSize: 13, cursor: 'pointer', width: 24, textAlign: 'center' }}
-                        aria-label={isOpen ? 'Collapse' : 'Expand'}
-                      >
-                        {isOpen ? '▲' : '▼'}
-                      </button>
+                      <span style={{ color: 'var(--color-ink-45)', fontSize: 18, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                        ↓
+                      </span>
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Expanded drawer */}
-                  {isOpen && (item.answer || item.post || item.status === 'new') && (
-                    <div
-                      id={`detail-${item.id}`}
-                      style={{
-                        display: 'flex', gap: 32, marginTop: 24,
-                        background: 'var(--color-surface-2)', border: '1px solid #E8E2D6', padding: 26,
-                      }}
-                    >
-                      {item.status === 'new' ? (
-                        <Link href="/" style={{ fontSize: 13, color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                          Answer this question →
-                        </Link>
+                  {isOpen && (
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32,
+                      padding: '0 0 32px', background: 'var(--color-surface)',
+                      marginBottom: 0, padding: '24px 28px 28px',
+                    }}>
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
+                          Your answer
+                        </div>
+                        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--color-ink)', margin: 0 }}>
+                          {item.answer || <span style={{ color: 'var(--color-ink-45)', fontStyle: 'italic' }}>No answer recorded</span>}
+                        </p>
+                      </div>
+                      {item.generated_post ? (
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
+                            Generated post
+                          </div>
+                          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--color-ink)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {item.generated_post}
+                          </p>
+                        </div>
                       ) : (
-                        <>
-                          {item.answer && (
-                            <div style={{ flex: 1, borderRight: item.post ? '1px solid #E8E2D6' : 'none', paddingRight: item.post ? 32 : 0 }}>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-light)', marginBottom: 12 }}>
-                                Your answer
-                              </div>
-                              <div style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--color-ink-45)' }}>
-                                {item.answer}
-                              </div>
-                            </div>
-                          )}
-                          {item.post && (
-                            <div style={{ flex: 1.1 }}>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-light)', marginBottom: 12 }}>
-                                {item.status === 'published' ? 'Posted to LinkedIn' : 'Generated post'}
-                              </div>
-                              <div style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--color-post-text)' }}>
-                                {item.post.split('\n\n')[0]}…
-                              </div>
-                            </div>
-                          )}
-                        </>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 28 }}>
+                          <a href="/" style={{
+                            fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-oxblood)',
+                            border: '1px solid var(--color-oxblood)', padding: '0 18px', height: 40,
+                            display: 'inline-flex', alignItems: 'center', textDecoration: 'none',
+                          }}>
+                            Answer this question →
+                          </a>
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
 
         </div>
       </div>

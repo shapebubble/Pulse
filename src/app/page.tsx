@@ -1,100 +1,130 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 import { Nav } from '@/components/Nav'
+import { createClient } from '@/lib/supabase-browser'
 
 interface Question {
   id: string
   text: string
   topic: string
+  week_start: string
+}
+
+interface Post {
+  id?: string
+  question_id: string
+  answer: string
+  generated_post: string
+  format: string
   status: 'new' | 'draft' | 'done' | 'published' | 'skipped'
-  answer?: string
-  post?: string
-  createdAt: string
 }
 
 type Format = 'question-led' | 'free-speaking'
 
-const DEMO_QUESTIONS: Question[] = [
-  {
-    id: '1',
-    text: 'AI tools can now generate a finished UI in an afternoon. Does that make UX designers more valuable, or less?',
-    topic: 'AI × Design',
-    status: 'new',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    text: 'Most design systems are built for consistency. But consistency at scale can kill the moments of delight that make a product memorable. How do you balance the two?',
-    topic: 'UX Craft',
-    status: 'draft',
-    answer: 'I think the answer is deliberate exception zones...',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    text: 'If you had to remove one phase from a typical UX process to ship faster, which would you cut — and what would you do to mitigate the risk?',
-    topic: 'Process',
-    status: 'new',
-    createdAt: new Date().toISOString(),
-  },
-]
-
-function statusDot(status: Question['status'], isActive: boolean) {
-  if (isActive) {
-    return { width: 11, height: 11, background: 'var(--color-oxblood)', display: 'inline-block' as const }
-  }
-  if (status === 'draft')     return { width: 11, height: 11, background: 'var(--color-amber)', display: 'inline-block' as const }
-  if (status === 'done')      return { width: 11, height: 11, background: 'var(--color-green)', display: 'inline-block' as const }
-  if (status === 'published') return { width: 11, height: 11, background: 'var(--color-green)', display: 'inline-block' as const }
-  return { width: 11, height: 11, border: '1px solid var(--color-hairline-3)', display: 'inline-block' as const }
+function statusDot(status: Post['status'], isActive: boolean) {
+  const base = { width: 11, height: 11, display: 'inline-block' as const }
+  if (isActive)                return { ...base, background: 'var(--color-oxblood)' }
+  if (status === 'draft')      return { ...base, background: 'var(--color-amber)' }
+  if (status === 'done')       return { ...base, background: 'var(--color-green)' }
+  if (status === 'published')  return { ...base, background: 'var(--color-green)' }
+  return { ...base, border: '1px solid var(--color-hairline-3)' }
 }
 
 export default function Home() {
-  const [questions, setQuestions]   = useState<Question[]>(DEMO_QUESTIONS)
-  const [index, setIndex]           = useState(0)
-  const [answer, setAnswer]         = useState('')
-  const [post, setPost]             = useState('')
-  const [format, setFormat]         = useState<Format>('question-led')
+  const supabase = createClient()
+
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [posts, setPosts]         = useState<Map<string, Post>>(new Map())
+  const [index, setIndex]         = useState(0)
+  const [answer, setAnswer]       = useState('')
+  const [generatedPost, setGeneratedPost] = useState('')
+  const [format, setFormat]       = useState<Format>('question-led')
   const [polishing, setPolishing]   = useState(false)
   const [generating, setGenerating] = useState(false)
   const [posting, setPosting]       = useState(false)
-  const [step, setStep]             = useState<'answer' | 'preview' | 'published'>('answer')
-  const [saveLabel, setSaveLabel]   = useState('')
-  const [postError, setPostError]   = useState('')
+  const [step, setStep]           = useState<'answer' | 'preview' | 'published'>('answer')
+  const [saveLabel, setSaveLabel] = useState('')
+  const [postError, setPostError] = useState('')
+  const [linkedInConnected, setLinkedInConnected] = useState(false)
+  const [loading, setLoading]     = useState(true)
 
-  const q = questions[index]
+  const q    = questions[index]
+  const post = q ? (posts.get(q.id) ?? { question_id: q.id, answer: '', generated_post: '', format: 'question-led', status: 'new' as const }) : null
 
+  // Load questions + user's posts for this week
   useEffect(() => {
-    setAnswer(q?.answer || '')
-    setPost(q?.post || '')
-    setStep('answer')
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const [{ data: qs }, { data: ps }, { data: profile }] = await Promise.all([
+        supabase.from('questions').select('*').order('created_at'),
+        supabase.from('posts').select('*').eq('user_id', user.id),
+        supabase.from('profiles').select('linkedin_access_token, linkedin_token_expires_at').eq('id', user.id).single(),
+      ])
+
+      if (qs) setQuestions(qs)
+      if (ps) {
+        const map = new Map<string, Post>()
+        ps.forEach(p => map.set(p.question_id, p))
+        setPosts(map)
+      }
+      if (profile?.linkedin_access_token) {
+        const expired = profile.linkedin_token_expires_at && new Date(profile.linkedin_token_expires_at) < new Date()
+        setLinkedInConnected(!expired)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  // Restore answer + step when index changes
+  useEffect(() => {
+    if (!post) return
+    setAnswer(post.answer || '')
+    setGeneratedPost(post.generated_post || '')
+    setStep(post.status === 'done' && post.generated_post ? 'preview' : 'answer')
     setPostError('')
-  }, [index])
+    setSaveLabel('')
+  }, [index, questions])
+
+  // Autosave answer 800ms after typing stops
+  const savePost = useCallback(async (fields: Partial<Post> & { question_id: string }) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || !fields.question_id) return
+
+    const { data } = await supabase
+      .from('posts')
+      .upsert({ user_id: user.id, ...fields }, { onConflict: 'user_id,question_id' })
+      .select()
+      .single()
+
+    if (data) {
+      setPosts(prev => new Map(prev).set(data.question_id, data))
+    }
+  }, [])
 
   useEffect(() => {
-    if (!answer) return
+    if (!answer || !q) return
+    const newStatus = post?.status === 'new' || !post?.status ? 'draft' : post.status
     const t = setTimeout(() => {
-      setQuestions(prev => prev.map((item, i) =>
-        i === index
-          ? { ...item, answer, status: item.status === 'new' ? 'draft' : item.status }
-          : item
-      ))
+      savePost({ question_id: q.id, answer, status: newStatus as Post['status'] })
       setSaveLabel('Saved · just now')
     }, 800)
     return () => clearTimeout(t)
-  }, [answer, index])
+  }, [answer])
 
   const prev = useCallback(() => setIndex(i => Math.max(0, i - 1)), [])
   const next  = useCallback(() => {
+    if (!q) return
     if (index < questions.length - 1) {
-      if (!answer && questions[index].status === 'new') {
-        setQuestions(p => p.map((item, i) => i === index ? { ...item, status: 'skipped' } : item))
+      if (!answer && post?.status === 'new') {
+        savePost({ question_id: q.id, answer: '', status: 'skipped' })
       }
       setIndex(i => i + 1)
     }
-  }, [index, questions, answer])
+  }, [index, questions, answer, post, q])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -107,7 +137,7 @@ export default function Home() {
   }, [prev, next])
 
   const polishAnswer = async () => {
-    if (!answer.trim()) return
+    if (!answer.trim() || !q) return
     setPolishing(true)
     try {
       const res  = await fetch('/api/polish', {
@@ -121,7 +151,7 @@ export default function Home() {
   }
 
   const generatePost = async () => {
-    if (!answer.trim()) return
+    if (!answer.trim() || !q) return
     setGenerating(true)
     try {
       const res  = await fetch('/api/generate', {
@@ -130,10 +160,8 @@ export default function Home() {
       })
       const data = await res.json()
       if (data.post) {
-        setPost(data.post)
-        setQuestions(prev => prev.map((item, i) =>
-          i === index ? { ...item, post: data.post, status: 'done' } : item
-        ))
+        setGeneratedPost(data.post)
+        await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
         setStep('preview')
       }
     } catch { /* silently */ }
@@ -141,19 +169,20 @@ export default function Home() {
   }
 
   const postToLinkedIn = async () => {
-    if (!post) return
+    if (!generatedPost || !q) return
     setPosting(true)
     setPostError('')
     try {
       const res = await fetch('/api/linkedin/post', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: post }),
+        body: JSON.stringify({ text: generatedPost }),
       })
+      const data = await res.json()
       if (res.ok) {
-        setQuestions(prev => prev.map((item, i) =>
-          i === index ? { ...item, status: 'published' } : item
-        ))
+        await savePost({ question_id: q.id, status: 'published', linkedin_post_id: data.postId })
         setStep('published')
+      } else if (res.status === 403 && data.error?.includes('expired')) {
+        setPostError('LinkedIn connection expired — reconnect in Account')
       } else {
         setPostError('Failed to post — try again')
       }
@@ -163,7 +192,34 @@ export default function Home() {
     setPosting(false)
   }
 
-  const charCount = post.length
+  const currentStatus = post?.status ?? 'new'
+  const charCount = generatedPost.length
+
+  if (loading) {
+    return (
+      <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
+        <Nav />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', color: 'var(--color-ink-45)' }}>
+            LOADING
+          </span>
+        </div>
+      </main>
+    )
+  }
+
+  if (!q) {
+    return (
+      <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
+        <Nav />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: 'var(--color-ink-45)', textAlign: 'center', maxWidth: '40ch' }}>
+            No questions for this week yet — check back soon.
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--color-paper)' }}>
@@ -200,54 +256,46 @@ export default function Home() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                   <button
-                    type="button"
-                    onClick={prev}
-                    disabled={index === 0}
-                    aria-label="Previous question"
+                    type="button" onClick={prev} disabled={index === 0} aria-label="Previous question"
                     style={{
                       width: 44, height: 44, border: '1px solid var(--color-hairline-3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--color-ink-light)', background: 'none',
-                      fontSize: 15, cursor: index === 0 ? 'not-allowed' : 'pointer',
-                      opacity: index === 0 ? 0.4 : 1,
+                      color: 'var(--color-ink-light)', background: 'none', fontSize: 15,
+                      cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1,
                     }}
-                  >
-                    ‹
-                  </button>
+                  >‹</button>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, letterSpacing: '0.12em', color: 'var(--color-ink)' }}>
                     {String(index + 1).padStart(2, '0')}{' '}
                     <span style={{ color: 'var(--color-disabled-text)' }}>/ {String(questions.length).padStart(2, '0')}</span>
                   </span>
                   <button
-                    type="button"
-                    onClick={next}
-                    disabled={index === questions.length - 1}
-                    aria-label="Next question"
+                    type="button" onClick={next} disabled={index === questions.length - 1} aria-label="Next question"
                     style={{
                       width: 44, height: 44, border: '1px solid var(--color-ink)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--color-ink)', background: 'none',
-                      fontSize: 15, cursor: index === questions.length - 1 ? 'not-allowed' : 'pointer',
+                      color: 'var(--color-ink)', background: 'none', fontSize: 15,
+                      cursor: index === questions.length - 1 ? 'not-allowed' : 'pointer',
                       opacity: index === questions.length - 1 ? 0.4 : 1,
                     }}
-                  >
-                    ›
-                  </button>
+                  >›</button>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {questions.map((item, i) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      aria-label={`Question ${i + 1}: ${item.status}`}
-                      aria-pressed={i === index}
-                      onClick={() => setIndex(i)}
-                      style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}
-                    >
-                      <span style={statusDot(item.status, i === index)} />
-                    </button>
-                  ))}
+                  {questions.map((item, i) => {
+                    const p = posts.get(item.id)
+                    const s = p?.status ?? 'new'
+                    return (
+                      <button
+                        key={item.id} type="button"
+                        aria-label={`Question ${i + 1}: ${s}`}
+                        aria-pressed={i === index}
+                        onClick={() => setIndex(i)}
+                        style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}
+                      >
+                        <span style={statusDot(s as Post['status'], i === index)} />
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -267,45 +315,30 @@ export default function Home() {
                 }}
               />
 
-              {/* Format selector + buttons */}
+              {/* Format selector + action buttons */}
               <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }}>
                   {saveLabel && <span style={{ color: 'var(--color-ink-light)', marginRight: 16 }}>{saveLabel}</span>}
                   <span style={{ color: 'var(--color-ink-45)', marginRight: 10 }}>Format</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormat('question-led')}
-                    style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-                      textTransform: 'uppercase', padding: '5px 10px',
-                      border: '1px solid',
-                      borderColor: format === 'question-led' ? 'var(--color-oxblood)' : 'var(--color-hairline-3)',
-                      background: format === 'question-led' ? 'var(--color-ox-wash)' : 'none',
-                      color: format === 'question-led' ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
-                    }}
-                  >
-                    Question-led
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormat('free-speaking')}
-                    style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-                      textTransform: 'uppercase', padding: '5px 10px',
-                      border: '1px solid',
-                      borderColor: format === 'free-speaking' ? 'var(--color-oxblood)' : 'var(--color-hairline-3)',
-                      background: format === 'free-speaking' ? 'var(--color-ox-wash)' : 'none',
-                      color: format === 'free-speaking' ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
-                    }}
-                  >
-                    Free-speaking
-                  </button>
+                  {(['question-led', 'free-speaking'] as Format[]).map(f => (
+                    <button
+                      key={f} type="button" onClick={() => setFormat(f)}
+                      style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+                        textTransform: 'uppercase', padding: '5px 10px', border: '1px solid',
+                        borderColor: format === f ? 'var(--color-oxblood)' : 'var(--color-hairline-3)',
+                        background:  format === f ? 'var(--color-ox-wash)' : 'none',
+                        color:       format === f ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
+                      }}
+                    >
+                      {f === 'question-led' ? 'Question-led' : 'Free-speaking'}
+                    </button>
+                  ))}
                 </div>
 
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button
-                    type="button"
-                    onClick={polishAnswer}
+                    type="button" onClick={polishAnswer}
                     disabled={!answer.trim() || polishing}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
@@ -317,8 +350,7 @@ export default function Home() {
                     {polishing ? 'Polishing…' : 'Polish with AI ✦'}
                   </button>
                   <button
-                    type="button"
-                    onClick={generatePost}
+                    type="button" onClick={generatePost}
                     disabled={!answer.trim() || generating}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
@@ -336,7 +368,6 @@ export default function Home() {
 
           {step === 'preview' && (
             <>
-              {/* Preview header */}
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 paddingBottom: 20, borderBottom: '1px solid var(--color-hairline)',
@@ -344,8 +375,11 @@ export default function Home() {
               }}>
                 <button
                   type="button"
-                  onClick={() => { setStep('answer'); setQuestions(p => p.map((item, i) => i === index ? { ...item, status: 'draft' } : item)) }}
-                  style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', background: 'none', border: 'none' }}
+                  onClick={() => {
+                    setStep('answer')
+                    if (q) savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'draft' })
+                  }}
+                  style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   ← Back
                 </button>
@@ -354,13 +388,12 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Post textarea */}
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
                 <label htmlFor="post" className="sr-only">Generated post — edit before posting</label>
                 <textarea
                   id="post"
-                  value={post}
-                  onChange={e => setPost(e.target.value)}
+                  value={generatedPost}
+                  onChange={e => setGeneratedPost(e.target.value)}
                   style={{
                     display: 'block', width: '100%',
                     background: 'var(--color-surface)', border: '1px solid var(--color-hairline-2)',
@@ -376,9 +409,7 @@ export default function Home() {
                   </span>
                   <div style={{ display: 'flex', gap: 12 }}>
                     <button
-                      type="button"
-                      onClick={generatePost}
-                      disabled={generating}
+                      type="button" onClick={generatePost} disabled={generating}
                       style={{
                         fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                         color: 'var(--color-ink)', background: 'none',
@@ -388,19 +419,31 @@ export default function Home() {
                     >
                       {generating ? 'Regenerating…' : '↺ Regenerate'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={postToLinkedIn}
-                      disabled={posting}
-                      style={{
-                        fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
-                        color: '#FFFFFF', background: 'var(--color-linkedin)',
-                        border: '1px solid var(--color-linkedin)', padding: '0 26px', height: 48,
-                        opacity: posting ? 0.6 : 1,
-                      }}
-                    >
-                      {posting ? 'Posting…' : 'Post to LinkedIn →'}
-                    </button>
+                    {linkedInConnected ? (
+                      <button
+                        type="button" onClick={postToLinkedIn} disabled={posting}
+                        style={{
+                          fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                          color: '#FFFFFF', background: 'var(--color-linkedin)',
+                          border: '1px solid var(--color-linkedin)', padding: '0 26px', height: 48,
+                          opacity: posting ? 0.6 : 1,
+                        }}
+                      >
+                        {posting ? 'Posting…' : 'Post to LinkedIn →'}
+                      </button>
+                    ) : (
+                      <a
+                        href="/admin"
+                        style={{
+                          fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                          color: 'var(--color-ink-45)', border: '1px solid var(--color-hairline-3)',
+                          padding: '0 20px', height: 48, display: 'flex', alignItems: 'center',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        Connect LinkedIn first →
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -408,6 +451,9 @@ export default function Home() {
                   <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
                     <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
                     {postError}
+                    {postError.includes('expired') && (
+                      <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>→ Account</a>
+                    )}
                   </p>
                 )}
               </div>
@@ -425,7 +471,7 @@ export default function Home() {
                 style={{
                   fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                   color: 'var(--color-ink)', background: 'none',
-                  border: '1px solid var(--color-ink)', padding: '0 26px', height: 48,
+                  border: '1px solid var(--color-ink)', padding: '0 26px', height: 48, cursor: 'pointer',
                 }}
               >
                 Back to questions

@@ -1,36 +1,102 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Nav } from '@/components/Nav'
+import { createClient } from '@/lib/supabase-browser'
 
 const ALL_TOPICS = ['AI × Design', 'UX Craft', 'Process', 'Product thinking', 'Career'] as const
 
+interface Profile {
+  full_name: string | null
+  topics: string[]
+  linkedin_access_token: string | null
+  linkedin_token_expires_at: string | null
+}
+
 export default function AdminPage() {
-  const [linkedInConnected, setLinkedInConnected]   = useState(true)
-  const [disconnecting, setDisconnecting]           = useState(false)
+  const supabase = createClient()
+  const router   = useRouter()
+
+  const [profile, setProfile]                   = useState<Profile | null>(null)
+  const [userEmail, setUserEmail]               = useState('')
+  const [activeTopics, setActiveTopics]         = useState<Set<string>>(new Set(ALL_TOPICS))
+  const [savingTopics, setSavingTopics]         = useState(false)
+  const [disconnecting, setDisconnecting]       = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
-  const [activeTopics, setActiveTopics]             = useState<Set<string>>(new Set(ALL_TOPICS))
+  const [signingOut, setSigningOut]             = useState(false)
+  const [loading, setLoading]                   = useState(true)
 
-  const toggleTopic = (topic: string) => {
-    setActiveTopics(prev => {
-      if (prev.has(topic) && prev.size === 1) return prev // at least one required
-      const next = new Set(prev)
-      next.has(topic) ? next.delete(topic) : next.add(topic)
-      return next
-    })
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      setUserEmail(user.email ?? '')
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+        .eq('id', user.id)
+        .single()
+
+      if (data) {
+        setProfile(data)
+        setActiveTopics(new Set(data.topics ?? ALL_TOPICS))
+      }
+
+      // Handle LinkedIn callback params
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('li_connected')) {
+        window.history.replaceState({}, '', '/admin')
+        // Reload profile to show connected state
+        const { data: refreshed } = await supabase
+          .from('profiles')
+          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+          .eq('id', user.id)
+          .single()
+        if (refreshed) setProfile(refreshed)
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const toggleTopic = async (topic: string) => {
+    const next = new Set(activeTopics)
+    if (next.has(topic) && next.size === 1) return
+    next.has(topic) ? next.delete(topic) : next.add(topic)
+    setActiveTopics(next)
+
+    setSavingTopics(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ topics: Array.from(next) }).eq('id', user.id)
+    }
+    setSavingTopics(false)
   }
-
-  const handleConnect = () => { window.location.href = '/api/linkedin/auth' }
 
   const handleDisconnect = async () => {
     setDisconnecting(true)
-    try {
-      await fetch('/api/linkedin/disconnect', { method: 'POST' })
-      setLinkedInConnected(false)
-      setShowDisconnectConfirm(false)
-    } catch { /* silently */ }
+    await fetch('/api/linkedin/disconnect', { method: 'POST' })
+    setProfile(prev => prev ? { ...prev, linkedin_access_token: null, linkedin_token_expires_at: null } : null)
+    setShowDisconnectConfirm(false)
     setDisconnecting(false)
   }
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await fetch('/api/auth/signout', { method: 'POST' })
+    router.push('/auth')
+  }
+
+  const linkedInConnected = !!profile?.linkedin_access_token &&
+    (!profile.linkedin_token_expires_at || new Date(profile.linkedin_token_expires_at) > new Date())
+
+  const tokenDaysLeft = profile?.linkedin_token_expires_at
+    ? Math.ceil((new Date(profile.linkedin_token_expires_at).getTime() - Date.now()) / 86400000)
+    : null
 
   const sectionLabel: React.CSSProperties = {
     fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.2em',
@@ -41,6 +107,20 @@ export default function AdminPage() {
     borderTop: '1px solid var(--color-hairline)', paddingTop: 40, marginTop: 48,
   }
 
+  if (loading) {
+    return (
+      <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
+        <Nav active="account" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', color: 'var(--color-ink-45)' }}>LOADING</span>
+        </div>
+      </main>
+    )
+  }
+
+  const displayName = profile?.full_name || userEmail.split('@')[0]
+  const initial = (displayName[0] ?? 'A').toUpperCase()
+
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
       <Nav active="account" />
@@ -48,7 +128,6 @@ export default function AdminPage() {
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 24px 72px' }}>
         <div style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
 
-          {/* Page header */}
           <h1 style={{
             fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34,
             borderBottom: '1px solid var(--color-ink)', paddingBottom: 18, marginBottom: 0,
@@ -64,14 +143,15 @@ export default function AdminPage() {
                 width: 64, height: 64, background: 'var(--color-oxblood)', color: 'var(--color-paper)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'var(--font-serif)', fontSize: 30,
-              }}
-              aria-hidden="true">
-                A
+              }} aria-hidden="true">
+                {initial}
               </div>
               <div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)' }}>Adam Sørensen</div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)' }}>
+                  {displayName}
+                </div>
                 <div style={{ fontSize: 14, color: 'var(--color-ink-45)', marginTop: 3 }}>
-                  {'adam'}{'@'}{'thatsadam.dk'}
+                  {userEmail}
                 </div>
               </div>
             </div>
@@ -103,7 +183,9 @@ export default function AdminPage() {
                       display: 'inline-block',
                     }} />
                     <span style={{ fontSize: 12, color: 'var(--color-ink-45)' }}>
-                      {linkedInConnected ? 'Connected · token expires in 52 days' : 'Not connected'}
+                      {linkedInConnected
+                        ? `Connected${tokenDaysLeft !== null ? ` · token expires in ${tokenDaysLeft} days` : ''}`
+                        : profile?.linkedin_access_token ? 'Token expired — reconnect' : 'Not connected'}
                     </span>
                   </div>
                 </div>
@@ -113,12 +195,11 @@ export default function AdminPage() {
                 <div>
                   {!showDisconnectConfirm ? (
                     <button
-                      type="button"
-                      onClick={() => setShowDisconnectConfirm(true)}
+                      type="button" onClick={() => setShowDisconnectConfirm(true)}
                       style={{
                         fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
                         color: 'var(--color-ink)', background: 'none',
-                        border: '1px solid var(--color-ink)', padding: '0 18px', height: 44,
+                        border: '1px solid var(--color-ink)', padding: '0 18px', height: 44, cursor: 'pointer',
                       }}
                     >
                       Disconnect
@@ -127,20 +208,17 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>Remove access?</span>
                       <button
-                        type="button"
-                        onClick={handleDisconnect}
-                        disabled={disconnecting}
+                        type="button" onClick={handleDisconnect} disabled={disconnecting}
                         style={{
                           fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
                           color: 'var(--color-paper)', background: 'var(--color-oxblood)',
-                          border: '1px solid var(--color-oxblood)', padding: '0 16px', height: 40,
+                          border: '1px solid var(--color-oxblood)', padding: '0 16px', height: 40, cursor: 'pointer',
                         }}
                       >
                         {disconnecting ? 'Removing…' : 'Yes, remove'}
                       </button>
                       <button
-                        type="button"
-                        onClick={() => setShowDisconnectConfirm(false)}
+                        type="button" onClick={() => setShowDisconnectConfirm(false)}
                         style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
                       >
                         Cancel
@@ -150,15 +228,14 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <button
-                  type="button"
-                  onClick={handleConnect}
+                  type="button" onClick={() => { window.location.href = '/api/linkedin/auth' }}
                   style={{
                     fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
                     color: '#FFFFFF', background: 'var(--color-linkedin)',
-                    border: 'none', padding: '0 18px', height: 44,
+                    border: 'none', padding: '0 18px', height: 44, cursor: 'pointer',
                   }}
                 >
-                  Connect
+                  {profile?.linkedin_access_token ? 'Reconnect' : 'Connect'}
                 </button>
               )}
             </div>
@@ -166,7 +243,14 @@ export default function AdminPage() {
 
           {/* Topic areas */}
           <div style={sectionDivider}>
-            <div style={sectionLabel}>Topic areas</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={sectionLabel}>Topic areas</div>
+              {savingTopics && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', color: 'var(--color-ink-45)' }}>
+                  SAVING…
+                </span>
+              )}
+            </div>
             <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--color-ink-45)', margin: '14px 0 18px', maxWidth: '54ch' }}>
               Questions are generated from news in these areas — changes take effect from the next set of questions.
             </p>
@@ -176,8 +260,7 @@ export default function AdminPage() {
                 const isLast   = isActive && activeTopics.size === 1
                 return (
                   <button
-                    key={topic}
-                    type="button"
+                    key={topic} type="button"
                     onClick={() => toggleTopic(topic)}
                     disabled={isLast}
                     aria-pressed={isActive}
@@ -197,21 +280,27 @@ export default function AdminPage() {
                 )
               })}
             </div>
+            {activeTopics.size === 1 && (
+              <p style={{ fontSize: 13, color: 'var(--color-ink-45)', marginTop: 12, fontStyle: 'italic' }}>
+                You need at least one topic selected.
+              </p>
+            )}
           </div>
 
           {/* Sign out */}
           <div style={{ borderTop: '1px solid var(--color-hairline)', paddingTop: 32, marginTop: 48 }}>
             <button
               type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
               style={{
                 fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                 color: 'var(--color-oxblood)', background: 'none',
                 border: '1px solid var(--color-oxblood)', padding: '0 22px', height: 48,
-                cursor: 'pointer',
+                cursor: 'pointer', opacity: signingOut ? 0.6 : 1,
               }}
-              onClick={() => {/* sign out via Supabase */}}
             >
-              Sign out
+              {signingOut ? 'Signing out…' : 'Sign out'}
             </button>
           </div>
 
