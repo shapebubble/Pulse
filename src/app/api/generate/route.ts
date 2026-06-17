@@ -58,16 +58,21 @@ export async function POST(req: NextRequest) {
 
   const promptFn = SYSTEM_PROMPTS[format as keyof typeof SYSTEM_PROMPTS] ?? SYSTEM_PROMPTS['question-led']
 
-  const msg = await client.messages.create({
-    model:      'claude-sonnet-4-6',
-    max_tokens: 1500,
-    messages: [{
-      role:    'user',
-      content: promptFn(topic ?? '', question ?? '', answer),
-    }],
-  })
+  try {
+    const msg = await client.messages.create({
+      model:      'claude-sonnet-4-6',
+      max_tokens: 1500,
+      messages: [{
+        role:    'user',
+        content: promptFn(topic ?? '', question ?? '', answer),
+      }],
+    })
 
-  const post = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
-
-  return NextResponse.json({ post })
+    const post = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+    return NextResponse.json({ post })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[generate] Anthropic error:', msg)
+    return NextResponse.json({ error: 'Generation failed', detail: msg }, { status: 500 })
+  }
 }
