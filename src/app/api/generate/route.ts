@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+// v2 — client inside handler
 
 export async function GET() {
   return NextResponse.json({
