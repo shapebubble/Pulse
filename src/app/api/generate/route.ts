@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+export async function GET() {
+  return NextResponse.json({
+    hasKey: !!process.env.ANTHROPIC_API_KEY,
+    keyPrefix: process.env.ANTHROPIC_API_KEY?.substring(0, 10) ?? 'MISSING',
+  })
+}
 
 const SYSTEM_PROMPTS = {
   'question-led': (topic: string, question: string, answer: string) => `You are writing a LinkedIn post for a senior UX designer with 15+ years of experience in digital and product design, now positioning himself as AI-fluent.
@@ -56,6 +61,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No answer provided' }, { status: 400 })
   }
 
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured on server' }, { status: 500 })
+  }
+
+  const client = new Anthropic({ apiKey })
   const promptFn = SYSTEM_PROMPTS[format as keyof typeof SYSTEM_PROMPTS] ?? SYSTEM_PROMPTS['question-led']
 
   try {
