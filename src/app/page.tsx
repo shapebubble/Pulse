@@ -18,6 +18,7 @@ interface Post {
   generated_post: string
   format: string
   status: 'new' | 'draft' | 'done' | 'published' | 'skipped'
+  linkedin_post_id?: string
 }
 
 type Format = 'question-led' | 'free-speaking'

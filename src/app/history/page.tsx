@@ -179,7 +179,7 @@ export default function HistoryPage() {
                   {isOpen && (
                     <div style={{
                       display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32,
-                      padding: '0 0 32px', background: 'var(--color-surface)',
+                      background: 'var(--color-surface)',
                       marginBottom: 0, padding: '24px 28px 28px',
                     }}>
                       <div>
