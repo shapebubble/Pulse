@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase-server'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
-  const provider = params.provider as 'google' | 'github'
+  const { provider: providerParam } = await params
+  const provider = providerParam as 'google' | 'github'
   if (provider !== 'google' && provider !== 'github') {
     return NextResponse.redirect('/auth?error=invalid_provider')
   }
