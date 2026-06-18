@@ -25,7 +25,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Pulse — Think out loud',
+  title: 'Postyon — Post Your Own Narrative',
   description: 'One question a week. In your own voice.',
 }
 

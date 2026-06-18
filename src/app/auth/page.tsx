@@ -53,7 +53,7 @@ export default function AuthPage() {
         fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.24em',
         textTransform: 'uppercase', color: 'var(--color-disabled-text)',
       }}>
-        Pulse · {mode === 'login' ? 'Sign in to think out loud' : 'Create your account'}
+        Postyon · {mode === 'login' ? 'Post your own narrative' : 'Create your account'}
       </div>
 
       <div style={{ width: '100%', maxWidth: 400 }}>
@@ -61,7 +61,7 @@ export default function AuthPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
           <ECGMark size={46} />
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 42, letterSpacing: '-0.01em', color: 'var(--color-ink)' }}>
-            Pulse
+            Postyon
           </span>
         </div>
         <p style={{

@@ -73,7 +73,7 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
         <ECGMark />
         <span style={{ fontFamily: 'var(--font-serif)', fontSize: 24, letterSpacing: '-0.01em', color: 'var(--color-ink)' }}>
-          Pulse
+          Postyon
         </span>
       </Link>
 
