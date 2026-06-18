@@ -26,6 +26,7 @@
   --color-disabled-text:#B6AEA2; /* disabled button text */
   --color-linkedin:   #0A66C2;   /* Post to LinkedIn button only */
   --color-post-text:  #221E19;   /* post preview body text */
+  --color-mark:       #2E4A35;   /* Postyon Y mark — forest green */
 
   /* ─── Legacy aliases (globals.css + existing code) ───────────── */
   --color-bg:          var(--color-paper);
@@ -37,9 +38,10 @@
 
   /* ─── Typography ────────────────────────────────────────────── */
 
-  --font-serif: var(--font-newsreader), 'Newsreader', Georgia, serif;
-  --font-sans:  var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono:  var(--font-plex-mono), 'IBM Plex Mono', 'Courier New', monospace;
+  --font-serif:    var(--font-newsreader), 'Newsreader', Georgia, serif;
+  --font-sans:     var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:     var(--font-plex-mono), 'IBM Plex Mono', 'Courier New', monospace;
+  --font-display:  var(--font-archivo), 'Archivo', sans-serif;
 
   /* Aliases */
   --font-family:       var(--font-sans);

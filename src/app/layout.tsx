@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google'
+import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono, Archivo } from 'next/font/google'
 import './globals.css'
 
 const newsreader = Newsreader({
@@ -24,6 +24,13 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: 'swap',
 })
 
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-archivo',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'Postyon — Post Your Own Narrative',
   description: 'One question a week. In your own voice.',
@@ -31,7 +38,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`h-full ${newsreader.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
+    <html lang="en" className={`h-full ${newsreader.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${archivo.variable}`}>
       <body className="min-h-full flex flex-col">
         {children}
       </body>

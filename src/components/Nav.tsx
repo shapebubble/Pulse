@@ -5,18 +5,30 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
-export function ECGMark({ size = 34 }: { size?: number }) {
-  const h = Math.round(size * 20 / 34)
+export function PostyonMark({ size = 30 }: { size?: number }) {
   return (
-    <svg width={size} height={h} viewBox="0 0 34 20" fill="none" aria-hidden="true">
-      <polyline
-        points="0,10 8,10 11,10 14,3 18,17 22,6 25,10 34,10"
-        stroke="#7C1D2B"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 100 100" width={size} height={size} fill="none" aria-hidden="true" style={{ overflow: 'visible' }}>
+      <polyline points="76,14 50,52 50,90" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt" strokeLinejoin="miter"/>
+      <line x1="28" y1="22" x2="50" y2="52" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt"/>
     </svg>
+  )
+}
+
+export function PostyonWordmark({ size = 26 }: { size?: number }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'baseline',
+      fontFamily: 'var(--font-display)', fontWeight: 700,
+      fontSize: size, letterSpacing: '-0.035em', color: 'var(--color-ink)',
+      lineHeight: 1,
+    }}>
+      Post
+      <svg viewBox="18 10 64 80" style={{ height: '0.72em', width: 'auto', margin: '0 -0.035em 0 0.07em', overflow: 'visible' }} fill="none" aria-hidden="true">
+        <polyline points="76,14 50,52 50,90" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt" strokeLinejoin="miter"/>
+        <line x1="28" y1="22" x2="50" y2="52" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt"/>
+      </svg>
+      on
+    </span>
   )
 }
 
@@ -70,11 +82,9 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
       borderBottom: '1px solid var(--color-hairline)',
       backgroundColor: 'var(--color-paper)',
     }}>
-      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
-        <ECGMark />
-        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 24, letterSpacing: '-0.01em', color: 'var(--color-ink)' }}>
-          Postyon
-        </span>
+      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
+        <PostyonMark size={30} />
+        <PostyonWordmark size={26} />
       </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>

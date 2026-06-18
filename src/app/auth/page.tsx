@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ECGMark } from '@/components/Nav'
+import { PostyonMark, PostyonWordmark } from '@/components/Nav'
 
 type Mode = 'login' | 'signup'
 
@@ -58,11 +58,9 @@ export default function AuthPage() {
 
       <div style={{ width: '100%', maxWidth: 400 }}>
         {/* Wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
-          <ECGMark size={46} />
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 42, letterSpacing: '-0.01em', color: 'var(--color-ink)' }}>
-            Postyon
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 8 }}>
+          <PostyonMark size={46} />
+          <PostyonWordmark size={42} />
         </div>
         <p style={{
           textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic',
