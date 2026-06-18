@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { PostyonMark, PostyonWordmark } from '@/components/Nav'
 
@@ -17,6 +17,19 @@ export default function AuthPage() {
   const [forgotStep, setForgotStep] = useState<'none' | 'input' | 'sent'>('none')
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err) {
+      const messages: Record<string, string> = {
+        sso_failed: 'Sign in failed — try again or use email',
+        invalid_provider: 'Unknown sign-in method',
+      }
+      setError(messages[err] ?? 'Something went wrong — try again')
+      window.history.replaceState({}, '', '/auth')
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -7,6 +7,10 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state')
   const storedState = req.cookies.get('li_state')?.value
 
+  const oauthError = searchParams.get('error')
+  if (oauthError === 'user_cancelled_authorize' || oauthError === 'user_cancelled_login') {
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin`)
+  }
   if (!code || state !== storedState) {
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_error=state_mismatch`)
   }

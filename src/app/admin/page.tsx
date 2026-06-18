@@ -211,7 +211,7 @@ export default function AdminPage() {
                     </button>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account.</span>
+                      <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account. Are you sure?</span>
                       <button
                         type="button" onClick={handleDisconnect} disabled={disconnecting}
                         style={{
@@ -263,7 +263,7 @@ export default function AdminPage() {
               )}
             </div>
             <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--color-ink-45)', margin: '14px 0 18px', maxWidth: '54ch' }}>
-              Questions are generated from news in these areas — changes take effect from the next set of questions.
+              Edit your topic areas below. Questions are generated from news in these areas — changes take effect from the next set of questions.
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {ALL_TOPICS.map(topic => {

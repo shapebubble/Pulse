@@ -145,6 +145,7 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => setExpanded(isOpen ? null : item.post_id)}
+                    aria-expanded={isOpen}
                     style={{
                       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                       width: '100%', padding: '24px 0', background: 'none', border: 'none',
@@ -192,8 +193,17 @@ export default function HistoryPage() {
                       </div>
                       {(item.status !== 'new' && item.status !== 'skipped') ? (
                         <div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
-                            Generated post
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)' }}>
+                              Generated post
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(item.generated_post)}
+                              style={{ background: 'none', border: '1px solid var(--color-hairline-3)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-ink-45)', padding: '3px 8px', cursor: 'pointer' }}
+                            >
+                              Copy
+                            </button>
                           </div>
                           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--color-ink)', margin: 0, whiteSpace: 'pre-wrap' }}>
                             {item.generated_post}

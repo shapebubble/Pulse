@@ -50,6 +50,8 @@ export default function Home() {
   const [generateError, setGenerateError] = useState('')
   const [linkedInConnected, setLinkedInConnected] = useState(false)
   const [loading, setLoading]     = useState(true)
+  const [publishedReady, setPublishedReady] = useState(false)
+  const [regenPending, setRegenPending] = useState(false)
 
   // Keep a ref to the latest answer so nav handlers can flush before index change
   const answerRef = useRef(answer)
@@ -86,7 +88,7 @@ export default function Home() {
       const questionsToShow = filtered.length > 0 ? filtered : allQs
       setQuestions(questionsToShow)
 
-      // Set initial index: URL param → first unanswered → last question
+      // Set initial index: URL param → first unanswered → newest (index 0)
       const urlParams = new URLSearchParams(window.location.search)
       const questionId = urlParams.get('question')
       let initialIndex = 0
@@ -102,7 +104,8 @@ export default function Home() {
           const p = map.get(q.id)
           return !p || p.status === 'new' || p.status === 'skipped'
         })
-        initialIndex = firstUnanswered >= 0 ? firstUnanswered : Math.max(0, questionsToShow.length - 1)
+        // If all answered, snap to newest (index 0, since sorted descending)
+        initialIndex = firstUnanswered >= 0 ? firstUnanswered : 0
       }
       setIndex(initialIndex)
 
@@ -124,6 +127,7 @@ export default function Home() {
     setPostError('')
     setGenerateError('')
     setPolishError('')
+    setRegenPending(false)
   }, [index, questions])
 
   const savePost = useCallback(async (fields: Partial<Post> & { question_id: string }) => {
@@ -172,6 +176,15 @@ export default function Home() {
     if (index < questions.length - 1) setIndex(i => i + 1)
   }, [index, questions, post, q, savePost])
 
+  // Jump to a specific question by index, flushing pending save first
+  const jumpToQuestion = useCallback((i: number) => {
+    if (answerRef.current.trim() && q) {
+      const s = post?.status === 'new' || !post?.status ? 'draft' : post.status
+      savePost({ question_id: q.id, answer: answerRef.current, status: s as Post['status'] })
+    }
+    setIndex(i)
+  }, [q, post, savePost])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'TEXTAREA') return
@@ -194,6 +207,9 @@ export default function Home() {
       const data = await res.json()
       if (data.polished) {
         setAnswer(data.polished)
+        // Save immediately so polish isn't lost on fast navigation
+        const s = post?.status === 'new' || !post?.status ? 'draft' : (post?.status ?? 'draft')
+        await savePost({ question_id: q.id, answer: data.polished, status: s as Post['status'] })
       } else {
         setPolishError('Polish failed — try again')
       }
@@ -207,6 +223,7 @@ export default function Home() {
     if (!answer.trim() || !q) return
     setGenerating(true)
     setGenerateError('')
+    setRegenPending(false)
     try {
       const res  = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -239,6 +256,8 @@ export default function Home() {
       if (res.ok) {
         await savePost({ question_id: q.id, status: 'published', linkedin_post_id: data.postId })
         setStep('published')
+        setPublishedReady(false)
+        setTimeout(() => setPublishedReady(true), 3000)
       } else if (res.status === 403 && data.error?.includes('expired')) {
         setPostError('LinkedIn connection expired — reconnect in Account')
       } else {
@@ -346,7 +365,7 @@ export default function Home() {
                         key={item.id} type="button"
                         aria-label={`Question ${i + 1}: ${s}`}
                         aria-pressed={i === index}
-                        onClick={() => setIndex(i)}
+                        onClick={() => jumpToQuestion(i)}
                         style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}
                       >
                         <span style={statusDot(s as Post['status'], i === index)} />
@@ -447,8 +466,10 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => {
+                    setGeneratedPost('')
                     setStep('answer')
-                    if (q) savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'draft' })
+                    setRegenPending(false)
+                    if (q) savePost({ question_id: q.id, answer, generated_post: '', format, status: 'draft' })
                   }}
                   style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
@@ -461,7 +482,6 @@ export default function Home() {
 
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
                 <label htmlFor="post" className="sr-only">Generated post — edit before posting</label>
-                {/* readOnly during regeneration so user doesn't lose edits mid-stream */}
                 <textarea
                   id="post"
                   value={generatedPost}
@@ -481,18 +501,42 @@ export default function Home() {
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-ink-light)' }}>
                     {charCount} characters · edit freely before posting
                   </span>
-                  <div style={{ display: 'flex', gap: 12 }}>
-                    <button
-                      type="button" onClick={generatePost} disabled={generating}
-                      style={{
-                        fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
-                        color: 'var(--color-ink)', background: 'none',
-                        border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
-                        opacity: generating ? 0.4 : 1,
-                      }}
-                    >
-                      {generating ? 'Regenerating…' : '↺ Regenerate'}
-                    </button>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {regenPending ? (
+                      <>
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--color-ink-45)' }}>
+                          Your edits will be replaced.
+                        </span>
+                        <button
+                          type="button" onClick={generatePost}
+                          style={{
+                            fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                            color: 'var(--color-paper)', background: 'var(--color-oxblood)',
+                            border: '1px solid var(--color-oxblood)', padding: '0 18px', height: 44,
+                          }}
+                        >
+                          Yes, regenerate
+                        </button>
+                        <button
+                          type="button" onClick={() => setRegenPending(false)}
+                          style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button" onClick={() => setRegenPending(true)} disabled={generating}
+                        style={{
+                          fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                          color: 'var(--color-ink)', background: 'none',
+                          border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
+                          opacity: generating ? 0.4 : 1,
+                        }}
+                      >
+                        {generating ? 'Regenerating…' : '↺ Regenerate'}
+                      </button>
+                    )}
                     {linkedInConnected ? (
                       <button
                         type="button" onClick={postToLinkedIn} disabled={posting}
@@ -515,7 +559,7 @@ export default function Home() {
                           textDecoration: 'none',
                         }}
                       >
-                        Connect LinkedIn in Account →
+                        Connect LinkedIn in Account settings →
                       </a>
                     )}
                   </div>
@@ -539,17 +583,19 @@ export default function Home() {
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-green)', marginBottom: 24 }}>
                 ✓ Posted to LinkedIn
               </div>
-              <button
-                type="button"
-                onClick={() => { setStep('answer'); setIndex(i => Math.min(i + 1, questions.length - 1)) }}
-                style={{
-                  fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
-                  color: 'var(--color-ink)', background: 'none',
-                  border: '1px solid var(--color-ink)', padding: '0 26px', height: 48, cursor: 'pointer',
-                }}
-              >
-                Back to questions
-              </button>
+              {publishedReady && (
+                <button
+                  type="button"
+                  onClick={() => { setStep('answer'); setIndex(i => Math.min(i + 1, questions.length - 1)) }}
+                  style={{
+                    fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                    color: 'var(--color-ink)', background: 'none',
+                    border: '1px solid var(--color-ink)', padding: '0 26px', height: 48, cursor: 'pointer',
+                  }}
+                >
+                  Back to questions
+                </button>
+              )}
             </div>
           )}
 
