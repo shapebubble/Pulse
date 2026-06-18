@@ -13,11 +13,21 @@ export default function AuthPage() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [showPw, setShowPw]     = useState(false)
+  const [confirmationEmail, setConfirmationEmail] = useState('')
+  const [forgotStep, setForgotStep] = useState<'none' | 'input' | 'sent'>('none')
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
     try {
       const res  = await fetch(`/api/auth/${mode}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -27,7 +37,11 @@ export default function AuthPage() {
       if (!res.ok) {
         setError(data.error || 'Something went wrong')
       } else {
-        window.location.href = '/'
+        if (mode === 'signup') {
+          setConfirmationEmail(email)
+        } else {
+          window.location.href = '/'
+        }
       }
     } catch {
       setError('Network error — please try again')
@@ -39,7 +53,53 @@ export default function AuthPage() {
     window.location.href = `/api/auth/sso/${provider}`
   }
 
+  const handleForgotPassword = async (e: React.FormEvent | React.MouseEvent) => {
+    e.preventDefault()
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    await fetch('/api/auth/forgot', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: forgotEmail }),
+    })
+    setForgotStep('sent')
+    setForgotLoading(false)
+  }
+
   const hasError = !!error
+
+  if (confirmationEmail) {
+    return (
+      <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
+        <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32 }}>
+            <PostyonMark size={46} />
+            <PostyonWordmark size={42} />
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 28, color: 'var(--color-ink)', margin: '0 0 12px' }}>
+            Check your email
+          </h2>
+          <p style={{ fontSize: 16, color: 'var(--color-ink-45)', lineHeight: 1.6, margin: '0 0 8px' }}>
+            We've sent a confirmation link to
+          </p>
+          <p style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-ink)', margin: '0 0 28px' }}>
+            {confirmationEmail}
+          </p>
+          <p style={{ fontSize: 14, color: 'var(--color-ink-45)', margin: '0 0 20px' }}>
+            Click the link in the email to activate your account.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              await fetch('/api/auth/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: confirmationEmail }) })
+            }}
+            style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}
+          >
+            Resend confirmation email
+          </button>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main style={{
@@ -103,7 +163,7 @@ export default function AuthPage() {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700,
             }}>
-              G
+              GH
             </span>
             Continue with GitHub
           </button>
@@ -120,7 +180,7 @@ export default function AuthPage() {
 
         {/* Email + password form */}
         <form onSubmit={handleSubmit} noValidate>
-          <label style={{
+          <label htmlFor="email" style={{
             display: 'block', fontFamily: 'var(--font-mono)', fontSize: 11,
             letterSpacing: '0.14em', textTransform: 'uppercase',
             color: 'var(--color-ink-45)', marginBottom: 9,
@@ -142,7 +202,7 @@ export default function AuthPage() {
             }}
           />
 
-          <label style={{
+          <label htmlFor="password" style={{
             display: 'block', fontFamily: 'var(--font-mono)', fontSize: 11,
             letterSpacing: '0.14em', textTransform: 'uppercase',
             color: hasError ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
@@ -181,11 +241,45 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {error && (
-            <p role="alert" style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10,
-            }}>
+          {mode === 'login' && forgotStep === 'none' && (
+            <div style={{ textAlign: 'right', marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => { setForgotStep('input'); setForgotEmail(email); setError('') }}
+                style={{ background: 'none', border: 'none', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-ink-45)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
+          {forgotStep === 'input' && (
+            <div style={{ marginTop: 20, padding: '20px 0', borderTop: '1px solid var(--color-hairline)' }}>
+              <p style={{ fontSize: 14, color: 'var(--color-ink-45)', margin: '0 0 14px' }}>
+                Enter your email and we'll send a reset link.
+              </p>
+              <input
+                type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                placeholder="your@email.com" autoComplete="email"
+                style={{ display: 'block', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-hairline-2)', padding: '12px 16px', fontSize: 15, color: 'var(--color-ink)', fontFamily: 'var(--font-sans)', marginBottom: 12 }}
+              />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" disabled={forgotLoading} onClick={handleForgotPassword} style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--color-paper)', background: 'var(--color-oxblood)', border: '1px solid var(--color-oxblood)', padding: '0 22px', height: 46, opacity: forgotLoading ? 0.6 : 1 }}>
+                  {forgotLoading ? 'Sending…' : 'Send reset link'}
+                </button>
+                <button type="button" onClick={() => setForgotStep('none')} style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--color-ink-45)', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+          {forgotStep === 'sent' && (
+            <div style={{ marginTop: 20, padding: '20px 0', borderTop: '1px solid var(--color-hairline)' }}>
+              <p style={{ fontSize: 15, color: 'var(--color-ink)', margin: '0 0 8px' }}>Check your email for a reset link.</p>
+              <p style={{ fontSize: 13, color: 'var(--color-ink-45)', margin: 0 }}>Sent to {forgotEmail}.</p>
+              <button type="button" onClick={() => setForgotStep('none')} style={{ marginTop: 14, background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>Back to sign in</button>
+            </div>
+          )}
+          {error && forgotStep === 'none' && (
+            <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
               <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
               {error}
             </p>

@@ -190,7 +190,7 @@ export default function HistoryPage() {
                           {item.answer || <span style={{ color: 'var(--color-ink-45)', fontStyle: 'italic' }}>No answer recorded</span>}
                         </p>
                       </div>
-                      {item.generated_post ? (
+                      {(item.status !== 'new' && item.status !== 'skipped') ? (
                         <div>
                           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
                             Generated post
@@ -201,7 +201,7 @@ export default function HistoryPage() {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 28 }}>
-                          <a href="/" style={{
+                          <a href={`/?question=${item.question_id}`} style={{
                             fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-oxblood)',
                             border: '1px solid var(--color-oxblood)', padding: '0 18px', height: 40,
                             display: 'inline-flex', alignItems: 'center', textDecoration: 'none',

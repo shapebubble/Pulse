@@ -8,7 +8,7 @@ export async function GET(
   const { provider: providerParam } = await params
   const provider = providerParam as 'google' | 'github'
   if (provider !== 'google' && provider !== 'github') {
-    return NextResponse.redirect('/auth?error=invalid_provider')
+    return NextResponse.redirect(new URL('/auth?error=invalid_provider', req.url).toString())
   }
 
   const supabase = await createClient()

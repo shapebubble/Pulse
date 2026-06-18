@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [signingOut, setSigningOut]             = useState(false)
   const [loading, setLoading]                   = useState(true)
+  const [linkedInError, setLinkedInError]       = useState('')
 
   useEffect(() => {
     async function load() {
@@ -56,6 +57,10 @@ export default function AdminPage() {
           .eq('id', user.id)
           .single()
         if (refreshed) setProfile(refreshed)
+      }
+      if (params.get('li_error')) {
+        setLinkedInError(`LinkedIn connection failed: ${params.get('li_error')?.replace(/_/g, ' ')}`)
+        window.history.replaceState({}, '', '/admin')
       }
 
       setLoading(false)
@@ -206,7 +211,7 @@ export default function AdminPage() {
                     </button>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>Remove access?</span>
+                      <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account.</span>
                       <button
                         type="button" onClick={handleDisconnect} disabled={disconnecting}
                         style={{
@@ -239,6 +244,12 @@ export default function AdminPage() {
                 </button>
               )}
             </div>
+            {linkedInError && (
+              <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
+                <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+                {linkedInError}
+              </p>
+            )}
           </div>
 
           {/* Topic areas */}
@@ -282,7 +293,7 @@ export default function AdminPage() {
             </div>
             {activeTopics.size === 1 && (
               <p style={{ fontSize: 13, color: 'var(--color-ink-45)', marginTop: 12, fontStyle: 'italic' }}>
-                You need at least one topic selected.
+                You need at least one topic.
               </p>
             )}
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Nav } from '@/components/Nav'
 import { createClient } from '@/lib/supabase-browser'
 
@@ -45,32 +45,67 @@ export default function Home() {
   const [generating, setGenerating] = useState(false)
   const [posting, setPosting]       = useState(false)
   const [step, setStep]           = useState<'answer' | 'preview' | 'published'>('answer')
-  const [saveLabel, setSaveLabel] = useState('')
   const [postError, setPostError] = useState('')
+  const [polishError, setPolishError] = useState('')
+  const [generateError, setGenerateError] = useState('')
   const [linkedInConnected, setLinkedInConnected] = useState(false)
   const [loading, setLoading]     = useState(true)
+
+  // Keep a ref to the latest answer so nav handlers can flush before index change
+  const answerRef = useRef(answer)
+  answerRef.current = answer
 
   const q    = questions[index]
   const post = q ? (posts.get(q.id) ?? { question_id: q.id, answer: '', generated_post: '', format: 'question-led', status: 'new' as const }) : null
 
-  // Load questions + user's posts for this week
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
       const [{ data: qs }, { data: ps }, { data: profile }] = await Promise.all([
-        supabase.from('questions').select('*').order('created_at'),
+        supabase.from('questions').select('*').order('created_at', { ascending: false }),
         supabase.from('posts').select('*').eq('user_id', user.id),
-        supabase.from('profiles').select('linkedin_access_token, linkedin_token_expires_at').eq('id', user.id).single(),
+        supabase.from('profiles').select('linkedin_access_token, linkedin_token_expires_at, topics').eq('id', user.id).single(),
       ])
 
-      if (qs) setQuestions(qs)
-      if (ps) {
-        const map = new Map<string, Post>()
-        ps.forEach(p => map.set(p.question_id, p))
-        setPosts(map)
+      // Build posts map first (needed for initial index calculation)
+      const map = new Map<string, Post>()
+      if (ps) ps.forEach(p => map.set(p.question_id, p))
+      setPosts(map)
+
+      // Filter questions by user's selected topics
+      const selectedTopics: string[] = profile?.topics ?? []
+      const allQs = qs ?? []
+      const filtered = selectedTopics.length > 0
+        ? allQs.filter(q => selectedTopics.includes(q.topic))
+        : allQs
+      const questionsToShow = filtered.length > 0 ? filtered : allQs
+      setQuestions(questionsToShow)
+
+      // Set initial index: URL param → first unanswered → last question
+      const urlParams = new URLSearchParams(window.location.search)
+      const questionId = urlParams.get('question')
+      let initialIndex = 0
+
+      if (questionId) {
+        const paramIdx = questionsToShow.findIndex(q => q.id === questionId)
+        if (paramIdx >= 0) {
+          initialIndex = paramIdx
+          window.history.replaceState({}, '', '/')
+        }
+      } else {
+        const firstUnanswered = questionsToShow.findIndex(q => {
+          const p = map.get(q.id)
+          return !p || p.status === 'new' || p.status === 'skipped'
+        })
+        initialIndex = firstUnanswered >= 0 ? firstUnanswered : Math.max(0, questionsToShow.length - 1)
       }
+      setIndex(initialIndex)
+
       if (profile?.linkedin_access_token) {
         const expired = profile.linkedin_token_expires_at && new Date(profile.linkedin_token_expires_at) < new Date()
         setLinkedInConnected(!expired)
@@ -87,10 +122,10 @@ export default function Home() {
     setGeneratedPost(post.generated_post || '')
     setStep(post.status === 'done' && post.generated_post ? 'preview' : 'answer')
     setPostError('')
-    setSaveLabel('')
+    setGenerateError('')
+    setPolishError('')
   }, [index, questions])
 
-  // Autosave answer 800ms after typing stops
   const savePost = useCallback(async (fields: Partial<Post> & { question_id: string }) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !fields.question_id) return
@@ -106,26 +141,36 @@ export default function Home() {
     }
   }, [])
 
+  // Autosave 800ms after typing stops (silent — no indicator)
   useEffect(() => {
     if (!answer || !q) return
     const newStatus = post?.status === 'new' || !post?.status ? 'draft' : post.status
     const t = setTimeout(() => {
       savePost({ question_id: q.id, answer, status: newStatus as Post['status'] })
-      setSaveLabel('Saved · just now')
     }, 800)
     return () => clearTimeout(t)
   }, [answer])
 
-  const prev = useCallback(() => setIndex(i => Math.max(0, i - 1)), [])
-  const next  = useCallback(() => {
-    if (!q) return
-    if (index < questions.length - 1) {
-      if (!answer && post?.status === 'new') {
-        savePost({ question_id: q.id, answer: '', status: 'skipped' })
-      }
-      setIndex(i => i + 1)
+  const prev = useCallback(() => {
+    // Flush any pending save before navigating away
+    if (answerRef.current.trim() && q) {
+      const s = post?.status === 'new' || !post?.status ? 'draft' : post.status
+      savePost({ question_id: q.id, answer: answerRef.current, status: s as Post['status'] })
     }
-  }, [index, questions, answer, post, q])
+    setIndex(i => Math.max(0, i - 1))
+  }, [q, post, savePost])
+
+  const next = useCallback(() => {
+    if (!q) return
+    // Flush any pending save before navigating away
+    if (answerRef.current.trim()) {
+      const s = post?.status === 'new' || !post?.status ? 'draft' : post.status
+      savePost({ question_id: q.id, answer: answerRef.current, status: s as Post['status'] })
+    } else if (!answerRef.current && post?.status === 'new') {
+      savePost({ question_id: q.id, answer: '', status: 'skipped' })
+    }
+    if (index < questions.length - 1) setIndex(i => i + 1)
+  }, [index, questions, post, q, savePost])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -140,20 +185,28 @@ export default function Home() {
   const polishAnswer = async () => {
     if (!answer.trim() || !q) return
     setPolishing(true)
+    setPolishError('')
     try {
       const res  = await fetch('/api/polish', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answer, question: q.text }),
       })
       const data = await res.json()
-      if (data.polished) setAnswer(data.polished)
-    } catch { /* silently */ }
+      if (data.polished) {
+        setAnswer(data.polished)
+      } else {
+        setPolishError('Polish failed — try again')
+      }
+    } catch {
+      setPolishError('Something went wrong — try again')
+    }
     setPolishing(false)
   }
 
   const generatePost = async () => {
     if (!answer.trim() || !q) return
     setGenerating(true)
+    setGenerateError('')
     try {
       const res  = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -164,8 +217,12 @@ export default function Home() {
         setGeneratedPost(data.post)
         await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
         setStep('preview')
+      } else {
+        setGenerateError('Generation failed — try again')
       }
-    } catch { /* silently */ }
+    } catch {
+      setGenerateError('Something went wrong — try again')
+    }
     setGenerating(false)
   }
 
@@ -193,7 +250,6 @@ export default function Home() {
     setPosting(false)
   }
 
-  const currentStatus = post?.status ?? 'new'
   const charCount = generatedPost.length
 
   if (loading) {
@@ -300,12 +356,13 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Answer textarea */}
+              {/* Answer textarea — readOnly during AI polish */}
               <label htmlFor="answer" className="sr-only">Your answer</label>
               <textarea
                 id="answer"
                 value={answer}
-                onChange={e => { setAnswer(e.target.value); setSaveLabel('') }}
+                onChange={e => setAnswer(e.target.value)}
+                readOnly={polishing}
                 placeholder="Start with a gut reaction. One honest sentence is enough."
                 style={{
                   display: 'block', width: '100%', marginTop: 32,
@@ -313,13 +370,13 @@ export default function Home() {
                   padding: 26, minHeight: 200,
                   fontFamily: 'var(--font-sans)', fontSize: 18, lineHeight: 1.6,
                   color: answer ? 'var(--color-ink)' : 'var(--color-ink-light)',
+                  opacity: polishing ? 0.7 : 1,
                 }}
               />
 
               {/* Format selector + action buttons */}
               <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }}>
-                  {saveLabel && <span style={{ color: 'var(--color-ink-light)', marginRight: 16 }}>{saveLabel}</span>}
                   <span style={{ color: 'var(--color-ink-45)', marginRight: 10 }}>Format</span>
                   {(['question-led', 'free-speaking'] as Format[]).map(f => (
                     <button
@@ -364,6 +421,19 @@ export default function Home() {
                   </button>
                 </div>
               </div>
+
+              {polishError && (
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
+                  <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+                  {polishError}
+                </p>
+              )}
+              {generateError && (
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
+                  <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+                  {generateError}
+                </p>
+              )}
             </>
           )}
 
@@ -391,16 +461,19 @@ export default function Home() {
 
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
                 <label htmlFor="post" className="sr-only">Generated post — edit before posting</label>
+                {/* readOnly during regeneration so user doesn't lose edits mid-stream */}
                 <textarea
                   id="post"
                   value={generatedPost}
                   onChange={e => setGeneratedPost(e.target.value)}
+                  readOnly={generating}
                   style={{
                     display: 'block', width: '100%',
                     background: 'var(--color-surface)', border: '1px solid var(--color-hairline-2)',
                     padding: 34, minHeight: 320,
                     fontFamily: 'var(--font-sans)', fontSize: 18, lineHeight: 1.66,
                     color: 'var(--color-post-text)',
+                    opacity: generating ? 0.7 : 1,
                   }}
                 />
 
@@ -442,16 +515,16 @@ export default function Home() {
                           textDecoration: 'none',
                         }}
                       >
-                        Connect LinkedIn first →
+                        Connect LinkedIn in Account →
                       </a>
                     )}
                   </div>
                 </div>
 
-                {postError && (
+                {(postError || generateError) && (
                   <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
                     <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
-                    {postError}
+                    {postError || generateError}
                     {postError.includes('expired') && (
                       <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>→ Account</a>
                     )}
