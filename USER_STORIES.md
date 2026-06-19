@@ -70,7 +70,7 @@
 **Acceptance criteria:**
 - [ ] "Preview →" button requires a non-empty answer — disabled or shows inline error if textarea is empty
 - [ ] Clicking "Preview →" immediately transitions to the Preview step (see US-006) — no API call at this stage
-- [ ] The raw answer text is carried over as the initial post draft in the Preview step
+- [ ] The preview draft is pre-populated with the question (in Unicode bold) followed by a blank line and the raw answer
 - [ ] Question status changes to "done"
 
 ---
@@ -84,16 +84,13 @@
 
 **Acceptance criteria:**
 - [ ] Screen transitions to Preview step — question and answer area replaced by the post draft
-- [ ] Post draft is pre-populated with the raw answer text carried from the Answer step
+- [ ] Post draft is pre-populated with the question (Unicode bold) + blank line + raw answer
 - [ ] Post draft is displayed in an editable textarea — user can make direct edits
-- [ ] "← Back" link returns to the Answer step (answer is preserved)
+- [ ] "← Back" link returns to the Answer step (answer is preserved, preview draft is cleared)
 - [ ] "Post preview" label makes clear what state the user is in
-- [ ] Character count or word count is visible (LinkedIn cap awareness)
-- [ ] "Elaborate with AI ✦" button is available in the Preview step — optional, not required to proceed
-- [ ] Clicking "Elaborate with AI ✦" calls `/api/generate` with the current answer and question, then replaces the post draft textarea content with the AI-expanded result
-- [ ] While the AI elaboration is processing: button shows a loading state, textarea is non-editable
-- [ ] On AI elaboration failure: error message "Elaboration failed — try again" appears inline, previous draft is restored, user can retry
+- [ ] Character count is visible (LinkedIn cap awareness)
 - [ ] Post remains editable until the user chooses to post or go back
+- [ ] No AI elaboration in the Preview step — Elaborate with AI ✦ is on the Answer step (see US-008)
 
 ---
 
@@ -119,17 +116,16 @@
 
 ### US-008 Elaborate the post with AI
 **As** a user  
-**I want** to optionally expand or rewrite my draft using AI from the Preview step  
-**So that** I can get a more polished post without losing the option to post the raw draft
+**I want** to optionally expand or rewrite my answer using AI before previewing  
+**So that** I can get a more polished LinkedIn post while keeping my raw answer as an alternative
 
 **Acceptance criteria:**
-- [ ] "Elaborate with AI ✦" button is present in the Preview step (not on the Answer step)
-- [ ] Clicking it calls `/api/generate` with the current answer and question
-- [ ] While processing: loading state, textarea non-editable
-- [ ] On success: textarea content is replaced with the AI-generated version
-- [ ] On failure: error inline, previous draft restored, user can retry
-- [ ] The user can click "Elaborate with AI ✦" again to get a further revision — each call replaces the current textarea content
-- [ ] Any direct edits the user made to the draft are discarded when "Elaborate with AI ✦" is clicked (this is expected behaviour — the button is a deliberate replace action, not an accumulation)
+- [ ] "Elaborate with AI ✦" button is on the **Answer step** alongside "Polish with AI ✦" and "Preview →"
+- [ ] Clicking it calls `/api/generate` with the current answer, question, topic, and selected format
+- [ ] While processing: button shows "Elaborating…" loading state; Polish and Preview buttons are disabled
+- [ ] On success: transitions directly to the Preview step with the AI-generated post as the draft
+- [ ] On failure: inline error "Elaboration failed — try again" on the Answer step; answer is preserved
+- [ ] The selected format (question-led / free-speaking) is passed to the API and affects the AI output
 
 ---
 
@@ -335,7 +331,7 @@
 **Background:** The question-led format is more approachable — you're responding to something, not broadcasting. The free-speaking format is warmer and more personal but requires more confidence. Both are valid and the right choice depends on the question and mood. The format choice only applies when the user opts into AI elaboration — it has no effect on the raw draft.
 
 **Acceptance criteria:**
-- [ ] A format selector is shown on the Preview step, near the "Elaborate with AI ✦" button
+- [ ] A format selector is shown on the **Answer step**, near the "Elaborate with AI ✦" button
 - [ ] Two options: **"Question-led"** and **"Free-speaking"**
   - Question-led: post opens by framing the question as context, then presents the answer — the question is visible to the reader
   - Free-speaking: post sounds like natural conversation, mid-thought — "I've been thinking about X" or "Something I keep coming back to…". The question may be embedded or absent
@@ -408,3 +404,62 @@
 | US-022 | Choose post format | Not started |
 | US-023 | Topic areas default + first use | Not started |
 | US-024 | Persona/project switcher (Personal vs Subchecked) | Not started |
+| US-025 | Refresh questions on demand | Not started |
+| US-026 | Daily auto-refresh of questions | Not started |
+| US-027 | Marketing landing page | Not started |
+
+---
+
+## Question refresh
+
+### US-025 Refresh questions on demand
+**As** a logged-in user who has answered or skipped all available questions (or finds none relevant),
+**I want to** press a "New questions" button
+**so that** I get a fresh set of questions based on my topics and today's news.
+
+**Acceptance criteria:**
+- [ ] A "New questions →" button is always accessible on the home screen — not only when questions run out
+- [ ] Pressing it calls `/api/questions/refresh` with the user's active topics
+- [ ] The API fetches today's headlines for those topics via the news API, then uses AI to generate 2–3 new questions stored against the user's `user_id`
+- [ ] A loading state is shown while generating
+- [ ] On success: new questions are added to the pool and the user lands on the first unanswered one
+- [ ] On failure: inline error with a retry option; existing questions remain visible
+- [ ] Previously answered/skipped questions are not replaced — they remain in History
+- [ ] Questions are per-user (`user_id` column on `questions` table) — users only see their own questions
+
+---
+
+### US-026 Daily auto-refresh of questions
+**As** a logged-in user,
+**I want** new questions to appear automatically each day I open the app
+**so that** there's always fresh content based on my topics without me having to ask.
+
+**Acceptance criteria:**
+- [ ] On app load, if the user has no questions created today, a background refresh triggers automatically
+- [ ] Questions are generated per-user from their selected topic areas via news API + AI
+- [ ] On first sign-up, an initial batch of questions is generated based on their default topics
+- [ ] If auto-refresh fails silently, existing questions are shown with no error surfaced to the user
+- [ ] Manual refresh (US-025) and daily auto-refresh use the same `/api/questions/refresh` endpoint
+- [ ] The `questions` table has a `user_id` column — users only ever see their own questions
+
+---
+
+## Marketing
+
+### US-027 Marketing landing page
+**As** a professional wanting to build their personal brand on LinkedIn,
+**I want to** land on a clear, compelling page at postyon.com when I'm not logged in
+**so that** I understand what Postyon does and feel motivated to register.
+
+**Acceptance criteria:**
+- [ ] Unauthenticated visitors to `/` see the landing page — not a redirect to `/auth`
+- [ ] Logged-in users visiting `/` still go directly to the questions home screen
+- [ ] **Nav:** Postyon wordmark (left) + "Sign in" link (right)
+- [ ] **Hero:** bold headline (e.g. "Your thoughts on LinkedIn. Every week."), one-line subheadline, primary "Get started free →" button linking to `/auth?mode=signup`
+- [ ] **Problem section:** short copy on the blank-page problem — knowing you should post but never doing it
+- [ ] **How it works:** 3-step sequence — Get a question → Write your answer → Post to LinkedIn — with brief description per step
+- [ ] **Why it works:** 3 benefit points — your words not AI's, takes 5 minutes, builds consistency over time
+- [ ] **Final CTA block:** repeat headline + "Get started free →" button
+- [ ] **Footer:** Postyon wordmark + "Sign in" link
+- [ ] Page uses existing brand tokens (forest green, terracotta CTA, editorial typography)
+- [ ] Fully responsive — works on mobile and desktop
