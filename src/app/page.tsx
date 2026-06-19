@@ -325,7 +325,7 @@ export default function Home() {
 
               {/* Question */}
               <h1 style={{
-                fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 56,
+                fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: 60,
                 lineHeight: 1.12, letterSpacing: '-0.012em', margin: '24px 0 0',
                 color: 'var(--color-ink)', textWrap: 'balance',
               }}>
