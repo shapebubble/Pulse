@@ -31,29 +31,38 @@ export async function GET(req: NextRequest) {
   })
 
   if (!tokenRes.ok) {
+    const body = await tokenRes.text()
+    console.error('LinkedIn token exchange failed:', tokenRes.status, body)
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_error=token_exchange_failed`)
   }
 
-  const { access_token, expires_in } = await tokenRes.json()
+  const tokenJson = await tokenRes.json()
+  const { access_token, expires_in } = tokenJson
+
+  if (!access_token) {
+    console.error('LinkedIn token exchange returned no access_token:', JSON.stringify(tokenJson))
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_error=no_access_token`)
+  }
 
   // Get LinkedIn profile to extract author URN
   const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
     headers: { Authorization: `Bearer ${access_token}` },
   })
-  const profile = await profileRes.json()
-  const authorUrn = profile.sub ? `urn:li:person:${profile.sub}` : null
+  const liProfile = await profileRes.json()
+  const authorUrn = liProfile.sub ? `urn:li:person:${liProfile.sub}` : null
 
   // Store token in user's profile
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/auth`)
+    console.error('LinkedIn callback: no Supabase session, error:', userError?.message)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_error=session_expired`)
   }
 
   const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString()
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('profiles')
     .update({
       linkedin_access_token:      access_token,
@@ -61,6 +70,11 @@ export async function GET(req: NextRequest) {
       linkedin_author_urn:        authorUrn,
     })
     .eq('id', user.id)
+
+  if (updateError) {
+    console.error('LinkedIn callback: failed to save token:', updateError.message)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_error=save_failed`)
+  }
 
   const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin?li_connected=1`)
   response.cookies.delete('li_state')
