@@ -40,9 +40,9 @@ const benefits = [
   },
 ]
 
-function useReveal(margin = '-80px 0px') {
+function useReveal() {
   const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: margin as Parameters<typeof useInView>[1]['margin'] })
+  const inView = useInView(ref, { once: true })
   return { ref, inView }
 }
 
@@ -66,10 +66,10 @@ const mq = `
 `
 
 export function LandingPage() {
-  const problem  = useReveal('-60px 0px')
-  const steps_   = useReveal('-40px 0px')
-  const benefits_ = useReveal('-40px 0px')
-  const cta      = useReveal('-60px 0px')
+  const problem  = useReveal()
+  const steps_   = useReveal()
+  const benefits_ = useReveal()
+  const cta      = useReveal()
 
   return (
     <div style={{ fontFamily: 'var(--font-sans)', background: 'var(--color-paper)', minHeight: '100dvh' }}>
