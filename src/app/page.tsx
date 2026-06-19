@@ -228,10 +228,9 @@ export default function Home() {
   }
 
   const elaboratePost = async () => {
-    if (!q) return
+    if (!answer.trim() || !q) return
     setGenerating(true)
     setGenerateError('')
-    setRegenPending(false)
     try {
       const res  = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -241,6 +240,7 @@ export default function Home() {
       if (data.post) {
         setGeneratedPost(data.post)
         await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
+        setStep('preview')
       } else {
         setGenerateError('Elaboration failed — try again')
       }
@@ -423,24 +423,36 @@ export default function Home() {
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button
                     type="button" onClick={polishAnswer}
-                    disabled={!answer.trim() || polishing}
+                    disabled={!answer.trim() || polishing || generating}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                       color: 'var(--color-ink)', background: 'none',
                       border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
-                      opacity: (!answer.trim() || polishing) ? 0.35 : 1,
+                      opacity: (!answer.trim() || polishing || generating) ? 0.35 : 1,
                     }}
                   >
                     {polishing ? 'Polishing…' : 'Polish with AI ✦'}
                   </button>
                   <button
+                    type="button" onClick={elaboratePost}
+                    disabled={!answer.trim() || generating || polishing}
+                    style={{
+                      fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                      color: 'var(--color-ink)', background: 'none',
+                      border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
+                      opacity: (!answer.trim() || generating || polishing) ? 0.35 : 1,
+                    }}
+                  >
+                    {generating ? 'Elaborating…' : 'Elaborate with AI ✦'}
+                  </button>
+                  <button
                     type="button" onClick={previewPost}
-                    disabled={!answer.trim()}
+                    disabled={!answer.trim() || polishing || generating}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                       color: 'var(--color-paper)', background: 'var(--color-oxblood)',
                       border: '1px solid var(--color-oxblood)', padding: '0 26px', height: 48,
-                      opacity: !answer.trim() ? 0.45 : 1,
+                      opacity: (!answer.trim() || polishing || generating) ? 0.45 : 1,
                     }}
                   >
                     Preview →
@@ -503,41 +515,6 @@ export default function Home() {
                     {charCount} characters · edit freely before posting
                   </span>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    {regenPending ? (
-                      <>
-                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--color-ink-45)' }}>
-                          Replace with AI elaboration?
-                        </span>
-                        <button
-                          type="button" onClick={elaboratePost}
-                          style={{
-                            fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
-                            color: 'var(--color-paper)', background: 'var(--color-oxblood)',
-                            border: '1px solid var(--color-oxblood)', padding: '0 18px', height: 44,
-                          }}
-                        >
-                          Yes, elaborate
-                        </button>
-                        <button
-                          type="button" onClick={() => setRegenPending(false)}
-                          style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button" onClick={() => setRegenPending(true)} disabled={generating}
-                        style={{
-                          fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
-                          color: 'var(--color-ink)', background: 'none',
-                          border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
-                          opacity: generating ? 0.4 : 1,
-                        }}
-                      >
-                        {generating ? 'Elaborating…' : 'Elaborate with AI ✦'}
-                      </button>
-                    )}
                     {linkedInConnected ? (
                       <button
                         type="button" onClick={postToLinkedIn} disabled={posting}
