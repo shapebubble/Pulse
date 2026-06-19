@@ -219,8 +219,15 @@ export default function Home() {
     setPolishing(false)
   }
 
-  const generatePost = async () => {
+  const previewPost = () => {
     if (!answer.trim() || !q) return
+    setGeneratedPost(answer)
+    savePost({ question_id: q.id, answer, generated_post: answer, format, status: 'done' })
+    setStep('preview')
+  }
+
+  const elaboratePost = async () => {
+    if (!q) return
     setGenerating(true)
     setGenerateError('')
     setRegenPending(false)
@@ -233,9 +240,8 @@ export default function Home() {
       if (data.post) {
         setGeneratedPost(data.post)
         await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
-        setStep('preview')
       } else {
-        setGenerateError('Generation failed — try again')
+        setGenerateError('Elaboration failed — try again')
       }
     } catch {
       setGenerateError('Something went wrong — try again')
@@ -427,16 +433,16 @@ export default function Home() {
                     {polishing ? 'Polishing…' : 'Polish with AI ✦'}
                   </button>
                   <button
-                    type="button" onClick={generatePost}
-                    disabled={!answer.trim() || generating}
+                    type="button" onClick={previewPost}
+                    disabled={!answer.trim()}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                       color: 'var(--color-paper)', background: 'var(--color-oxblood)',
                       border: '1px solid var(--color-oxblood)', padding: '0 26px', height: 48,
-                      opacity: (!answer.trim() || generating) ? 0.45 : 1,
+                      opacity: !answer.trim() ? 0.45 : 1,
                     }}
                   >
-                    {generating ? 'Generating…' : 'Generate post →'}
+                    Preview →
                   </button>
                 </div>
               </div>
@@ -445,12 +451,6 @@ export default function Home() {
                 <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
                   <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
                   {polishError}
-                </p>
-              )}
-              {generateError && (
-                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
-                  <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
-                  {generateError}
                 </p>
               )}
             </>
@@ -481,7 +481,7 @@ export default function Home() {
               </div>
 
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
-                <label htmlFor="post" className="sr-only">Generated post — edit before posting</label>
+                <label htmlFor="post" className="sr-only">Your post — edit before posting</label>
                 <textarea
                   id="post"
                   value={generatedPost}
@@ -505,17 +505,17 @@ export default function Home() {
                     {regenPending ? (
                       <>
                         <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--color-ink-45)' }}>
-                          Your edits will be replaced.
+                          Replace with AI elaboration?
                         </span>
                         <button
-                          type="button" onClick={generatePost}
+                          type="button" onClick={elaboratePost}
                           style={{
                             fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
                             color: 'var(--color-paper)', background: 'var(--color-oxblood)',
                             border: '1px solid var(--color-oxblood)', padding: '0 18px', height: 44,
                           }}
                         >
-                          Yes, regenerate
+                          Yes, elaborate
                         </button>
                         <button
                           type="button" onClick={() => setRegenPending(false)}
@@ -534,7 +534,7 @@ export default function Home() {
                           opacity: generating ? 0.4 : 1,
                         }}
                       >
-                        {generating ? 'Regenerating…' : '↺ Regenerate'}
+                        {generating ? 'Elaborating…' : 'Elaborate with AI ✦'}
                       </button>
                     )}
                     {linkedInConnected ? (

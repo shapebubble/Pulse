@@ -62,36 +62,37 @@
 
 ---
 
-### US-005 Generate a LinkedIn post
+### US-005 Preview the post
 **As** a user  
-**I want** to turn my answer into a formatted LinkedIn post  
-**So that** I can post it without writing it from scratch
+**I want** to move to a preview of my answer as a post draft  
+**So that** I can review and refine it before publishing
 
 **Acceptance criteria:**
-- [ ] "Generate post →" button requires a non-empty answer — disabled or shows inline error if textarea is empty
-- [ ] While processing: button shows a loading state
-- [ ] On success: screen transitions to the Preview step (see US-006)
-- [ ] Generated post is 200–280 words, direct and opinionated in tone
-- [ ] Post does not contain banned phrases: "excited to share", "game-changer", "leverage", "synergy", "in today's fast-paced world"
-- [ ] Post ends with a question or observation to prompt comments
+- [ ] "Preview →" button requires a non-empty answer — disabled or shows inline error if textarea is empty
+- [ ] Clicking "Preview →" immediately transitions to the Preview step (see US-006) — no API call at this stage
+- [ ] The raw answer text is carried over as the initial post draft in the Preview step
 - [ ] Question status changes to "done"
-- [ ] On failure: error message "Generation failed — try again" appears inline, user remains on Answer step
 
 ---
 
 ## Home — Preview & Publish
 
-### US-006 Preview the generated post
+### US-006 Preview the post draft
 **As** a user  
-**I want** to read and edit the generated post before publishing  
+**I want** to read and edit my post draft before publishing  
 **So that** I can make sure it sounds like me
 
 **Acceptance criteria:**
-- [ ] Screen transitions to Preview step — question and answer area replaced by the post
-- [ ] Post is displayed in an editable textarea — user can make direct edits
+- [ ] Screen transitions to Preview step — question and answer area replaced by the post draft
+- [ ] Post draft is pre-populated with the raw answer text carried from the Answer step
+- [ ] Post draft is displayed in an editable textarea — user can make direct edits
 - [ ] "← Back" link returns to the Answer step (answer is preserved)
 - [ ] "Post preview" label makes clear what state the user is in
 - [ ] Character count or word count is visible (LinkedIn cap awareness)
+- [ ] "Elaborate with AI ✦" button is available in the Preview step — optional, not required to proceed
+- [ ] Clicking "Elaborate with AI ✦" calls `/api/generate` with the current answer and question, then replaces the post draft textarea content with the AI-expanded result
+- [ ] While the AI elaboration is processing: button shows a loading state, textarea is non-editable
+- [ ] On AI elaboration failure: error message "Elaboration failed — try again" appears inline, previous draft is restored, user can retry
 - [ ] Post remains editable until the user chooses to post or go back
 
 ---
@@ -116,17 +117,19 @@
 
 ---
 
-### US-008 Regenerate the post
+### US-008 Elaborate the post with AI
 **As** a user  
-**I want** to generate a new version of the post without going back  
-**So that** I can try again if the first attempt didn't land right
+**I want** to optionally expand or rewrite my draft using AI from the Preview step  
+**So that** I can get a more polished post without losing the option to post the raw draft
 
 **Acceptance criteria:**
-- [ ] "↺ Regenerate" button re-calls `/api/generate` with the same answer and question
+- [ ] "Elaborate with AI ✦" button is present in the Preview step (not on the Answer step)
+- [ ] Clicking it calls `/api/generate` with the current answer and question
 - [ ] While processing: loading state, textarea non-editable
-- [ ] On success: textarea content is replaced with the new post
-- [ ] On failure: error inline, previous post restored, user can retry
-- [ ] Any edits the user made to the previous post are discarded on regenerate (user is warned if they have unsaved edits, or this is documented clearly in the UI)
+- [ ] On success: textarea content is replaced with the AI-generated version
+- [ ] On failure: error inline, previous draft restored, user can retry
+- [ ] The user can click "Elaborate with AI ✦" again to get a further revision — each call replaces the current textarea content
+- [ ] Any direct edits the user made to the draft are discarded when "Elaborate with AI ✦" is clicked (this is expected behaviour — the button is a deliberate replace action, not an accumulation)
 
 ---
 
@@ -138,7 +141,7 @@
 **Acceptance criteria:**
 - [ ] "← Back" link on Preview step returns to the Answer step
 - [ ] The answer textarea is restored with the last saved draft
-- [ ] The generated post is discarded (user must regenerate after editing)
+- [ ] The post draft is discarded — user must click "Preview →" again to return to Preview, which resets the draft to the raw answer
 - [ ] Question status reverts to "draft"
 
 ---
@@ -212,8 +215,9 @@
 - [ ] Clicking an item expands it to reveal: full question, answer, generated post
 - [ ] Clicking again collapses it
 - [ ] Only one item expanded at a time (or multiple — decide at build time, document here)
-- [ ] Expanded state shows sections clearly labelled: "Your answer" / "Generated post"
-- [ ] If no post was generated: "Generated post" section is not shown
+- [ ] Expanded state shows sections clearly labelled: "Your answer" / "Post"
+- [ ] The "Post" section shows whatever was in the textarea when the user posted (raw draft or AI-elaborated version)
+- [ ] If no post was made: "Post" section is not shown
 
 ---
 
@@ -295,9 +299,16 @@
 
 **Acceptance criteria:**
 - [ ] Toggle between "Sign in" and "Sign up" visible on auth screen
-- [ ] Sign up requires: email, password (with basic strength indicator)
+- [ ] Sign up requires: email and password
+- [ ] Password field has show/hide toggle
 - [ ] Duplicate email shows inline error: "An account with this email already exists — sign in instead"
-- [ ] On success: redirect to `/` (Phase 1: account is pre-seeded with default topics and sample questions)
+- [ ] On submit: Supabase sends a confirmation email to the address provided
+- [ ] User sees an on-screen message: "Check your email — we've sent a confirmation link to [email]"
+- [ ] User must click the link in the email before they can sign in — clicking the link redirects to `/` with an active session
+- [ ] If the confirmation email isn't received: user can request a resend (link on the confirmation screen)
+- [ ] Expired or already-used confirmation links show: "This link has expired — sign up again or request a new one"
+- [ ] MFA: Phase 2
+- [ ] On first sign-in after confirmation: account is pre-seeded with all five default topic areas
 
 ---
 
@@ -318,22 +329,22 @@
 
 ### US-022 Choose post format
 **As** a user  
-**I want** to choose between a question-led post and a free-speaking post before generating  
-**So that** the output matches the tone I want — either engaging with an idea or speaking naturally from experience
+**I want** to choose between a question-led post and a free-speaking post before elaborating with AI  
+**So that** the AI output matches the tone I want — either engaging with an idea or speaking naturally from experience
 
-**Background:** The question-led format is more approachable — you're responding to something, not broadcasting. The free-speaking format is warmer and more personal but requires more confidence. Both are valid and the right choice depends on the question and mood.
+**Background:** The question-led format is more approachable — you're responding to something, not broadcasting. The free-speaking format is warmer and more personal but requires more confidence. Both are valid and the right choice depends on the question and mood. The format choice only applies when the user opts into AI elaboration — it has no effect on the raw draft.
 
 **Acceptance criteria:**
-- [ ] A format selector is shown on the Answer step, between the answer textarea and the action buttons
+- [ ] A format selector is shown on the Preview step, near the "Elaborate with AI ✦" button
 - [ ] Two options: **"Question-led"** and **"Free-speaking"**
   - Question-led: post opens by framing the question as context, then presents the answer — the question is visible to the reader
   - Free-speaking: post sounds like natural conversation, mid-thought — "I've been thinking about X" or "Something I keep coming back to…". The question may be embedded or absent
 - [ ] Default format is "Question-led" for new sessions
-- [ ] Selected format persists per session (not per question — one choice per generate action)
-- [ ] Selected format is passed to `/api/generate` as a `format` parameter
+- [ ] Selected format persists per session (not per question)
+- [ ] Selected format is passed to `/api/generate` as a `format` parameter when "Elaborate with AI ✦" is clicked
 - [ ] The generate API uses a different system prompt per format (same answer, different framing)
 - [ ] Format selector does not affect the Polish step — Polish is format-agnostic
-- [ ] The format selected is stored alongside the generated post in the `posts` table for reference
+- [ ] The format selected is stored alongside the post in the `posts` table for reference
 
 ---
 
@@ -377,10 +388,10 @@
 | US-002 | Navigate between questions | Not started |
 | US-003 | Write and autosave answer | Not started |
 | US-004 | Polish with AI | Not started |
-| US-005 | Generate post | Not started |
-| US-006 | Preview generated post | Not started |
+| US-005 | Preview post (raw answer → preview) | Not started |
+| US-006 | Preview post draft + Elaborate with AI | Not started |
 | US-007 | Post to LinkedIn | Not started |
-| US-008 | Regenerate post | Not started |
+| US-008 | Elaborate post with AI | Not started |
 | US-009 | Back to answer from preview | Not started |
 | US-010 | Connect LinkedIn | Not started |
 | US-011 | Disconnect LinkedIn | Not started |
