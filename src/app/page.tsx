@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Nav } from '@/components/Nav'
+import { LandingPage } from '@/components/LandingPage'
 import { createClient } from '@/lib/supabase-browser'
 
 interface Question {
@@ -59,7 +60,8 @@ export default function Home() {
   const [polishError, setPolishError] = useState('')
   const [generateError, setGenerateError] = useState('')
   const [linkedInConnected, setLinkedInConnected] = useState(false)
-  const [loading, setLoading]     = useState(true)
+  const [loading, setLoading]         = useState(true)
+  const [authenticated, setAuthenticated] = useState(false)
   const [publishedReady, setPublishedReady] = useState(false)
   const [regenPending, setRegenPending] = useState(false)
 
@@ -77,6 +79,7 @@ export default function Home() {
         setLoading(false)
         return
       }
+      setAuthenticated(true)
 
       const [{ data: qs }, { data: ps }, { data: profile }] = await Promise.all([
         supabase.from('questions').select('*').order('created_at', { ascending: false }),
@@ -299,6 +302,10 @@ export default function Home() {
         </div>
       </main>
     )
+  }
+
+  if (!authenticated) {
+    return <LandingPage />
   }
 
   if (!q) {
