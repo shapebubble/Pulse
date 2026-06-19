@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Nav } from '@/components/Nav'
 import { createClient } from '@/lib/supabase-browser'
 
-const ALL_TOPICS = ['AI × Design', 'UX Craft', 'Process', 'Product thinking', 'Career'] as const
-
 interface Profile {
   full_name: string | null
   topics: string[]
@@ -20,7 +18,8 @@ export default function AdminPage() {
 
   const [profile, setProfile]                   = useState<Profile | null>(null)
   const [userEmail, setUserEmail]               = useState('')
-  const [activeTopics, setActiveTopics]         = useState<Set<string>>(new Set(ALL_TOPICS))
+  const [allTopics, setAllTopics]               = useState<string[]>([])
+  const [activeTopics, setActiveTopics]         = useState<Set<string>>(new Set())
   const [savingTopics, setSavingTopics]         = useState(false)
   const [disconnecting, setDisconnecting]       = useState(false)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
@@ -35,15 +34,24 @@ export default function AdminPage() {
 
       setUserEmail(user.email ?? '')
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
-        .eq('id', user.id)
-        .single()
+      const [{ data }, { data: qRows }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+          .eq('id', user.id)
+          .single(),
+        supabase.from('questions').select('topic'),
+      ])
+
+      // Build available topics from questions table, sorted alphabetically
+      const topicsFromDb = Array.from(new Set((qRows ?? []).map((r: { topic: string }) => r.topic))).sort() as string[]
+      setAllTopics(topicsFromDb)
 
       if (data) {
         setProfile(data)
-        setActiveTopics(new Set(data.topics ?? ALL_TOPICS))
+        // Start with saved topics, but only ones that exist in the questions table
+        const saved: string[] = data.topics ?? []
+        setActiveTopics(new Set(saved.length > 0 ? saved : topicsFromDb))
       }
 
       // Handle LinkedIn callback params
@@ -266,7 +274,12 @@ export default function AdminPage() {
               Edit your topic areas below. Questions are generated from news in these areas — changes take effect from the next set of questions.
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {ALL_TOPICS.map(topic => {
+              {allTopics.length === 0 && (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ink-45)', letterSpacing: '0.1em' }}>
+                  No topics yet — questions will appear here once added.
+                </p>
+              )}
+              {allTopics.map(topic => {
                 const isActive = activeTopics.has(topic)
                 const isLast   = isActive && activeTopics.size === 1
                 return (
