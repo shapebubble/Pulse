@@ -23,6 +23,16 @@ interface Post {
 
 type Format = 'question-led' | 'free-speaking'
 
+function toBold(text: string): string {
+  return [...text].map(char => {
+    const code = char.codePointAt(0)!
+    if (code >= 65 && code <= 90)  return String.fromCodePoint(code - 65 + 0x1D5D4) // A-Z
+    if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1D5EE) // a-z
+    if (code >= 48 && code <= 57)  return String.fromCodePoint(code - 48 + 0x1D7EC) // 0-9
+    return char
+  }).join('')
+}
+
 function statusDot(status: Post['status'], isActive: boolean) {
   const base = { width: 11, height: 11, display: 'inline-block' as const }
   if (isActive)                return { ...base, background: 'var(--color-oxblood)' }
@@ -221,7 +231,7 @@ export default function Home() {
 
   const previewPost = () => {
     if (!answer.trim() || !q) return
-    const draft = `${q.text}\n\n${answer}`
+    const draft = `${toBold(q.text)}\n\n${answer}`
     setGeneratedPost(draft)
     savePost({ question_id: q.id, answer, generated_post: draft, format, status: 'done' })
     setStep('preview')
