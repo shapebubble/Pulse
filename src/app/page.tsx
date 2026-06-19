@@ -221,8 +221,9 @@ export default function Home() {
 
   const previewPost = () => {
     if (!answer.trim() || !q) return
-    setGeneratedPost(answer)
-    savePost({ question_id: q.id, answer, generated_post: answer, format, status: 'done' })
+    const draft = `${q.text}\n\n${answer}`
+    setGeneratedPost(draft)
+    savePost({ question_id: q.id, answer, generated_post: draft, format, status: 'done' })
     setStep('preview')
   }
 
