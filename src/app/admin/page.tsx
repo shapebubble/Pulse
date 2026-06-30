@@ -27,6 +27,30 @@ export default function AdminPage() {
   const [loading, setLoading]                   = useState(true)
   const [linkedInError, setLinkedInError]       = useState('')
 
+  // Name editing (J-010/J-011)
+  const [editingName, setEditingName]   = useState(false)
+  const [nameInput, setNameInput]       = useState('')
+  const [savingName, setSavingName]     = useState(false)
+  const [nameError, setNameError]       = useState('')
+  const [nameSaved, setNameSaved]       = useState(false)
+
+  // Change password (J-023)
+  const [currentPw, setCurrentPw]   = useState('')
+  const [newPw, setNewPw]           = useState('')
+  const [confirmPw, setConfirmPw]   = useState('')
+  const [changingPw, setChangingPw] = useState(false)
+  const [pwError, setPwError]       = useState('')
+  const [pwSuccess, setPwSuccess]   = useState(false)
+
+  // Export data (J-025)
+  const [exporting, setExporting] = useState(false)
+
+  // Delete account (J-022)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting]                   = useState(false)
+  const [deleteError, setDeleteError]             = useState('')
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -104,6 +128,75 @@ export default function AdminPage() {
     router.push('/auth')
   }
 
+  const handleSaveName = async () => {
+    if (!nameInput.trim()) { setNameError('Name cannot be empty'); return }
+    setSavingName(true); setNameError('')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { error } = await supabase.from('profiles').update({ full_name: nameInput.trim() }).eq('id', user.id)
+      if (!error) {
+        setProfile(prev => prev ? { ...prev, full_name: nameInput.trim() } : prev)
+        setEditingName(false)
+        setNameSaved(true)
+        setTimeout(() => setNameSaved(false), 3000)
+      } else {
+        setNameError('Failed to save — try again')
+      }
+    }
+    setSavingName(false)
+  }
+
+  const handleChangePassword = async () => {
+    setPwError('')
+    if (!newPw || newPw.length < 8) { setPwError('New password must be at least 8 characters'); return }
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+    setChangingPw(true)
+    const res = await fetch('/api/auth/update-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setPwSuccess(true)
+      setTimeout(() => setPwSuccess(false), 4000)
+    } else {
+      setPwError(data.error ?? 'Failed to change password')
+    }
+    setChangingPw(false)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setExporting(false); return }
+    const { data: posts } = await supabase.from('posts').select('*').eq('user_id', user.id)
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      profile: { email: userEmail, full_name: profile?.full_name, topics: profile?.topics },
+      posts: posts ?? [],
+    }
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url
+    a.download = `postyon-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click(); URL.revokeObjectURL(url)
+    setExporting(false)
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') { setDeleteError('Type DELETE to confirm'); return }
+    setDeleting(true)
+    const res = await fetch('/api/auth/delete-account', { method: 'POST' })
+    if (res.ok) {
+      await fetch('/api/auth/signout', { method: 'POST' })
+      router.push('/')
+    } else {
+      setDeleteError('Failed to delete account — contact support')
+      setDeleting(false)
+    }
+  }
+
   const linkedInConnected = !!profile?.linkedin_access_token &&
     (!profile.linkedin_token_expires_at || new Date(profile.linkedin_token_expires_at) > new Date())
 
@@ -118,6 +211,15 @@ export default function AdminPage() {
 
   const sectionDivider: React.CSSProperties = {
     borderTop: '1px solid var(--color-hairline)', paddingTop: 40, marginTop: 48,
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '11px 14px',
+    border: '1px solid var(--color-hairline-2)',
+    background: 'var(--color-surface)',
+    fontSize: 14, fontFamily: 'var(--font-sans)',
+    outline: 'none', maxWidth: 360,
+    boxSizing: 'border-box',
   }
 
   if (loading) {
@@ -160,9 +262,61 @@ export default function AdminPage() {
                 {initial}
               </div>
               <div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)' }}>
-                  {displayName}
-                </div>
+                {editingName ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                        style={{ ...inputStyle, maxWidth: 240, fontSize: 16 }}
+                        autoFocus
+                      />
+                      <button
+                        type="button" onClick={handleSaveName} disabled={savingName}
+                        style={{
+                          fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                          color: 'var(--color-paper)', background: 'var(--color-ink)',
+                          border: '1px solid var(--color-ink)', padding: '0 16px', height: 40,
+                          cursor: 'pointer', opacity: savingName ? 0.6 : 1,
+                        }}
+                      >
+                        {savingName ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        type="button" onClick={() => { setEditingName(false); setNameError('') }}
+                        style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {nameError && (
+                      <p style={{ fontSize: 13, color: 'var(--color-oxblood)', marginTop: 6 }}>{nameError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)' }}>
+                      {displayName}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setNameInput(displayName); setEditingName(true); setNameError('') }}
+                      style={{
+                        fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500,
+                        color: 'var(--color-ink-45)', background: 'none',
+                        border: '1px solid var(--color-hairline-2)', padding: '0 10px', height: 28,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Edit
+                    </button>
+                    {nameSaved && (
+                      <span style={{ fontSize: 12, color: 'var(--color-green)' }}>Saved</span>
+                    )}
+                  </div>
+                )}
                 <div style={{ fontSize: 14, color: 'var(--color-ink-45)', marginTop: 3 }}>
                   {userEmail}
                 </div>
@@ -308,6 +462,146 @@ export default function AdminPage() {
               <p style={{ fontSize: 13, color: 'var(--color-ink-45)', marginTop: 12, fontStyle: 'italic' }}>
                 You need at least one topic.
               </p>
+            )}
+          </div>
+
+          {/* Change password (J-023) */}
+          <div style={sectionDivider}>
+            <div style={sectionLabel}>Change password</div>
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 360 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--color-ink-45)', marginBottom: 6 }}>
+                  Current password
+                </label>
+                <input
+                  type="password"
+                  value={currentPw}
+                  onChange={e => setCurrentPw(e.target.value)}
+                  style={inputStyle}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--color-ink-45)', marginBottom: 6 }}>
+                  New password
+                </label>
+                <input
+                  type="password"
+                  value={newPw}
+                  onChange={e => setNewPw(e.target.value)}
+                  style={inputStyle}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--color-ink-45)', marginBottom: 6 }}>
+                  Confirm new password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPw}
+                  onChange={e => setConfirmPw(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleChangePassword()}
+                  style={inputStyle}
+                  autoComplete="new-password"
+                />
+              </div>
+              {pwError && (
+                <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', margin: 0 }}>{pwError}</p>
+              )}
+              {pwSuccess && (
+                <p style={{ fontSize: 13, color: 'var(--color-green)', margin: 0 }}>Password updated.</p>
+              )}
+              <div>
+                <button
+                  type="button" onClick={handleChangePassword} disabled={changingPw}
+                  style={{
+                    fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                    color: 'var(--color-paper)', background: 'var(--color-ink)',
+                    border: '1px solid var(--color-ink)', padding: '0 22px', height: 44,
+                    cursor: 'pointer', opacity: changingPw ? 0.6 : 1,
+                  }}
+                >
+                  {changingPw ? 'Updating…' : 'Change password'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Export data (J-025) */}
+          <div style={sectionDivider}>
+            <div style={sectionLabel}>Export data</div>
+            <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--color-ink-45)', margin: '14px 0 18px', maxWidth: '54ch' }}>
+              Download a copy of your Postyon data including your posts and profile.
+            </p>
+            <button
+              type="button" onClick={handleExport} disabled={exporting}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                color: 'var(--color-ink)', background: 'transparent',
+                border: '1px solid var(--color-ink)', padding: '0 22px', height: 44,
+                cursor: 'pointer', opacity: exporting ? 0.6 : 1,
+              }}
+            >
+              {exporting ? 'Preparing…' : 'Export my data'}
+            </button>
+          </div>
+
+          {/* Delete account (J-022) */}
+          <div style={sectionDivider}>
+            <div style={sectionLabel}>Delete account</div>
+            <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--color-ink-45)', margin: '14px 0 18px', maxWidth: '54ch' }}>
+              This permanently deletes your account and all your data. This cannot be undone.
+            </p>
+            {!showDeleteConfirm ? (
+              <button
+                type="button" onClick={() => { setShowDeleteConfirm(true); setDeleteError(''); setDeleteConfirmText('') }}
+                style={{
+                  fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                  color: '#E8404A', background: 'transparent',
+                  border: '1px solid #E8404A', padding: '0 22px', height: 44,
+                  cursor: 'pointer',
+                }}
+              >
+                Delete account
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, color: 'var(--color-ink-45)', marginBottom: 6 }}>
+                    Type DELETE to confirm
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    style={inputStyle}
+                    placeholder="DELETE"
+                  />
+                </div>
+                {deleteError && (
+                  <p role="alert" style={{ fontSize: 13, color: '#E8404A', margin: 0 }}>{deleteError}</p>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button
+                    type="button" onClick={handleDeleteAccount} disabled={deleting}
+                    style={{
+                      fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                      color: '#FFFFFF', background: '#E8404A',
+                      border: '1px solid #E8404A', padding: '0 22px', height: 44,
+                      cursor: 'pointer', opacity: deleting ? 0.6 : 1,
+                    }}
+                  >
+                    {deleting ? 'Deleting…' : 'Permanently delete'}
+                  </button>
+                  <button
+                    type="button" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteError('') }}
+                    style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

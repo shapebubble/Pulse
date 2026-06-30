@@ -64,6 +64,11 @@ export default function Home() {
   const [authenticated, setAuthenticated] = useState(false)
   const [publishedReady, setPublishedReady] = useState(false)
   const [regenPending, setRegenPending] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
+  const [showCustomQ, setShowCustomQ] = useState(false)
+  const [customQText, setCustomQText] = useState('')
+  const [customQuestion, setCustomQuestion] = useState<Question | null>(null)
 
   // Keep a ref to the latest answer so nav handlers can flush before index change
   const answerRef = useRef(answer)
@@ -71,6 +76,7 @@ export default function Home() {
 
   const q    = questions[index]
   const post = q ? (posts.get(q.id) ?? { question_id: q.id, answer: '', generated_post: '', format: 'question-led', status: 'new' as const }) : null
+  const activeQuestion = customQuestion ?? q
 
   useEffect(() => {
     async function load() {
@@ -160,13 +166,13 @@ export default function Home() {
 
   // Autosave 800ms after typing stops (silent — no indicator)
   useEffect(() => {
-    if (!answer || !q) return
+    if (!answer || !q || customQuestion) return
     const newStatus = post?.status === 'new' || !post?.status ? 'draft' : post.status
     const t = setTimeout(() => {
       savePost({ question_id: q.id, answer, status: newStatus as Post['status'] })
     }, 800)
     return () => clearTimeout(t)
-  }, [answer])
+  }, [answer, customQuestion])
 
   const prev = useCallback(() => {
     // Flush any pending save before navigating away
@@ -213,16 +219,19 @@ export default function Home() {
     setPolishing(true)
     setPolishError('')
     try {
+      const aq = activeQuestion ?? q
       const res  = await fetch('/api/polish', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer, question: q.text }),
+        body: JSON.stringify({ answer, question: aq.text }),
       })
       const data = await res.json()
       if (data.polished) {
         setAnswer(data.polished)
         // Save immediately so polish isn't lost on fast navigation
-        const s = post?.status === 'new' || !post?.status ? 'draft' : (post?.status ?? 'draft')
-        await savePost({ question_id: q.id, answer: data.polished, status: s as Post['status'] })
+        if (aq.id !== 'custom') {
+          const s = post?.status === 'new' || !post?.status ? 'draft' : (post?.status ?? 'draft')
+          await savePost({ question_id: q.id, answer: data.polished, status: s as Post['status'] })
+        }
       } else {
         setPolishError('Polish failed — try again')
       }
@@ -232,11 +241,30 @@ export default function Home() {
     setPolishing(false)
   }
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    setRefreshError('')
+    try {
+      const res = await fetch('/api/questions/refresh', { method: 'POST' })
+      if (res.ok) {
+        window.location.reload()
+      } else {
+        setRefreshError('Could not generate new questions — try again later')
+      }
+    } catch {
+      setRefreshError('Something went wrong — try again')
+    }
+    setRefreshing(false)
+  }
+
   const previewPost = () => {
     if (!answer.trim() || !q) return
-    const draft = `${toBold(q.text)}\n\n${answer}`
+    const aq = activeQuestion ?? q
+    const draft = `${toBold(aq.text)}\n\n${answer}`
     setGeneratedPost(draft)
-    savePost({ question_id: q.id, answer, generated_post: draft, format, status: 'done' })
+    if (aq.id !== 'custom') {
+      savePost({ question_id: q.id, answer, generated_post: draft, format, status: 'done' })
+    }
     setStep('preview')
   }
 
@@ -245,14 +273,17 @@ export default function Home() {
     setGenerating(true)
     setGenerateError('')
     try {
+      const aq = activeQuestion ?? q
       const res  = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer, question: q.text, topic: q.topic, format }),
+        body: JSON.stringify({ answer, question: aq.text, topic: aq.topic, format }),
       })
       const data = await res.json()
       if (data.post) {
         setGeneratedPost(data.post)
-        await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
+        if (aq.id !== 'custom') {
+          await savePost({ question_id: q.id, answer, generated_post: data.post, format, status: 'done' })
+        }
         setStep('preview')
       } else {
         setGenerateError('Elaboration failed — try again')
@@ -337,7 +368,7 @@ export default function Home() {
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 <span style={{ width: 6, height: 6, background: 'var(--color-oxblood)', display: 'inline-block' }} />
-                {q.topic}
+                {(activeQuestion ?? q)!.topic}
               </div>
 
               {/* Question */}
@@ -346,7 +377,7 @@ export default function Home() {
                 lineHeight: 1.12, letterSpacing: '-0.012em', margin: '24px 0 0',
                 color: 'var(--color-ink)', textWrap: 'balance',
               }}>
-                {q.text}
+                {(activeQuestion ?? q)!.text}
               </h1>
 
               {/* Navigation row */}
@@ -398,6 +429,101 @@ export default function Home() {
                   })}
                 </div>
               </div>
+
+              {/* F-001: New questions + F-016: Custom question controls */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
+                <button
+                  type="button" onClick={handleRefresh} disabled={refreshing}
+                  style={{
+                    background: 'none', border: 'none', fontFamily: 'var(--font-mono)', fontSize: 11,
+                    letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-ink-45)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0,
+                  }}
+                >
+                  {refreshing ? 'Refreshing…' : '↻  New questions'}
+                </button>
+                {!customQuestion && (
+                  <button
+                    type="button" onClick={() => setShowCustomQ(v => !v)}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', color: 'var(--color-ink-45)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      textDecoration: 'underline', textUnderlineOffset: 3, padding: 0,
+                    }}
+                  >
+                    Enter your own question
+                  </button>
+                )}
+                {customQuestion && (
+                  <button
+                    type="button" onClick={() => setCustomQuestion(null)}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', color: 'var(--color-ink)',
+                      background: 'none', border: '1px solid var(--color-ink)', cursor: 'pointer',
+                      padding: '3px 10px',
+                    }}
+                  >
+                    × Using custom question
+                  </button>
+                )}
+              </div>
+
+              {refreshError && (
+                <p role="alert" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#E8404A', marginTop: 6, letterSpacing: '0.08em' }}>
+                  {refreshError}
+                </p>
+              )}
+
+              {showCustomQ && !customQuestion && (
+                <div style={{ marginTop: 18 }}>
+                  <label htmlFor="custom-question" className="sr-only">Your question</label>
+                  <textarea
+                    id="custom-question"
+                    value={customQText}
+                    onChange={e => setCustomQText(e.target.value)}
+                    placeholder="What's your question?"
+                    rows={2}
+                    style={{
+                      width: '100%', fontFamily: 'var(--font-serif)', fontSize: 22,
+                      border: 'none', borderBottom: '2px solid var(--color-ink)',
+                      background: 'transparent', padding: '0 0 12px', outline: 'none', resize: 'none',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                    <button
+                      type="button"
+                      disabled={customQText.trim().length <= 10}
+                      onClick={() => {
+                        setCustomQuestion({ id: 'custom', text: customQText.trim(), topic: 'Custom', week_start: new Date().toISOString() })
+                        setShowCustomQ(false)
+                        setCustomQText('')
+                      }}
+                      style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', padding: '6px 14px',
+                        border: '1px solid var(--color-ink)', background: 'none', cursor: 'pointer',
+                        opacity: customQText.trim().length <= 10 ? 0.35 : 1,
+                      }}
+                    >
+                      Use this question
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCustomQ(false); setCustomQText('') }}
+                      style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', padding: '6px 14px',
+                        border: '1px solid var(--color-hairline-3)', background: 'none', cursor: 'pointer',
+                        color: 'var(--color-ink-45)',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Answer textarea — readOnly during AI polish */}
               <label htmlFor="answer" className="sr-only">Your answer</label>
@@ -528,18 +654,28 @@ export default function Home() {
                 />
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-ink-light)' }}>
-                    {charCount} characters · edit freely before posting
-                  </span>
+                  {charCount > 3000 ? (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: '#E8404A' }}>
+                      ⚠ {charCount}/3000 — over LinkedIn limit
+                    </span>
+                  ) : charCount > 2700 ? (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-amber)' }}>
+                      {charCount}/3000 characters
+                    </span>
+                  ) : (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-ink-45)' }}>
+                      {charCount} characters · edit freely before posting
+                    </span>
+                  )}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     {linkedInConnected ? (
                       <button
-                        type="button" onClick={postToLinkedIn} disabled={posting}
+                        type="button" onClick={postToLinkedIn} disabled={posting || charCount > 3000}
                         style={{
                           fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                           color: '#FFFFFF', background: 'var(--color-linkedin)',
                           border: '1px solid var(--color-linkedin)', padding: '0 26px', height: 48,
-                          opacity: posting ? 0.6 : 1,
+                          opacity: (posting || charCount > 3000) ? 0.6 : 1,
                         }}
                       >
                         {posting ? 'Posting…' : 'Post to LinkedIn →'}

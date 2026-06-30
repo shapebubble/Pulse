@@ -66,16 +66,21 @@ function formatDate(iso: string) {
 
 export default function HistoryPage() {
   const supabase = createClient()
-  const [items, setItems]       = useState<HistoryItem[]>([])
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const [items, setItems]             = useState<HistoryItem[]>([])
+  const [expanded, setExpanded]       = useState<string | null>(null)
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
+  const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all')
+  const [sortBy, setSortBy]           = useState<'date' | 'topic' | 'status'>('date')
+  const [retrying, setRetrying]       = useState<string | null>(null)
+  const [retryError, setRetryError]   = useState<Record<string, string>>({})
+  const [searchFocused, setSearchFocused] = useState(false)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Join posts with questions
       const { data: posts } = await supabase
         .from('posts')
         .select(`
@@ -111,6 +116,49 @@ export default function HistoryPage() {
     load()
   }, [])
 
+  const handleRetry = async (item: HistoryItem) => {
+    setRetrying(item.post_id)
+    setRetryError(prev => ({ ...prev, [item.post_id]: '' }))
+    try {
+      const res = await fetch('/api/linkedin/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: item.generated_post }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setItems(prev => prev.map(i =>
+          i.post_id === item.post_id ? { ...i, status: 'published' } : i
+        ))
+      } else if (res.status === 403 && data.error?.includes('expired')) {
+        setRetryError(prev => ({ ...prev, [item.post_id]: 'LinkedIn connection expired — reconnect in Account' }))
+      } else {
+        setRetryError(prev => ({ ...prev, [item.post_id]: 'Failed to post — try again' }))
+      }
+    } catch {
+      setRetryError(prev => ({ ...prev, [item.post_id]: 'Something went wrong — try again' }))
+    }
+    setRetrying(null)
+  }
+
+  // Derived filtered + sorted list
+  const displayed = items
+    .filter(item => {
+      if (filterStatus !== 'all' && item.status !== filterStatus) return false
+      if (search.trim()) {
+        const q = search.toLowerCase()
+        return item.question_text.toLowerCase().includes(q) || item.topic.toLowerCase().includes(q)
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'topic')  return a.topic.localeCompare(b.topic)
+      if (sortBy === 'status') return a.status.localeCompare(b.status)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+
+  const isFiltering = displayed.length !== items.length
+
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column' }}>
       <Nav active="history" />
@@ -125,6 +173,95 @@ export default function HistoryPage() {
             History
           </h1>
 
+          {/* Summary stats row (I-006) */}
+          {!loading && items.length > 0 && (
+            <p style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
+              color: 'var(--color-ink-45)', textTransform: 'uppercase', marginTop: 20, marginBottom: 0,
+            }}>
+              {items.length} post{items.length !== 1 ? 's' : ''}&nbsp;&nbsp;·&nbsp;&nbsp;
+              {items.filter(i => i.status === 'published').length} published&nbsp;&nbsp;·&nbsp;&nbsp;
+              {items.filter(i => i.status === 'draft').length} draft{items.filter(i => i.status === 'draft').length !== 1 ? 's' : ''}
+            </p>
+          )}
+
+          {/* Toolbar: search + filter + sort (I-010, I-011, I-012) */}
+          {!loading && items.length > 0 && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Search questions…"
+                style={{
+                  flex: 1, minWidth: 200,
+                  padding: '11px 14px',
+                  border: `1px solid ${searchFocused ? 'var(--color-oxblood)' : 'var(--color-hairline-2)'}`,
+                  background: 'var(--color-surface)',
+                  fontFamily: 'var(--font-sans)', fontSize: 14,
+                  color: 'var(--color-ink)',
+                  outline: 'none',
+                  borderRadius: 0,
+                }}
+              />
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value as Status | 'all')}
+                style={{
+                  width: 180,
+                  padding: '11px 14px',
+                  border: '1px solid var(--color-hairline-2)',
+                  background: 'var(--color-surface)',
+                  fontFamily: 'var(--font-mono)', fontSize: 12,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'var(--color-ink)',
+                  outline: 'none',
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="all">All statuses</option>
+                <option value="published">Published</option>
+                <option value="done">Ready</option>
+                <option value="draft">Draft</option>
+                <option value="new">New</option>
+                <option value="skipped">Skipped</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as 'date' | 'topic' | 'status')}
+                style={{
+                  width: 180,
+                  padding: '11px 14px',
+                  border: '1px solid var(--color-hairline-2)',
+                  background: 'var(--color-surface)',
+                  fontFamily: 'var(--font-mono)', fontSize: 12,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'var(--color-ink)',
+                  outline: 'none',
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="date">Date (newest)</option>
+                <option value="topic">Topic</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
+          )}
+
+          {/* Results count when filtering is active (I-009) */}
+          {!loading && isFiltering && (
+            <p style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
+              color: 'var(--color-ink-45)', textTransform: 'uppercase', marginTop: 14, marginBottom: 0,
+            }}>
+              Showing {displayed.length} of {items.length}
+            </p>
+          )}
+
           {loading && (
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', color: 'var(--color-ink-45)', marginTop: 48 }}>
               LOADING
@@ -137,9 +274,17 @@ export default function HistoryPage() {
             </p>
           )}
 
+          {/* Empty search/filter state */}
+          {!loading && items.length > 0 && displayed.length === 0 && (
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--color-ink-45)', marginTop: 48 }}>
+              No posts match your search.
+            </p>
+          )}
+
           <div style={{ marginTop: 32 }}>
-            {items.map(item => {
+            {displayed.map(item => {
               const isOpen = expanded === item.post_id
+              const canRetry = item.status !== 'published' && item.status !== 'new' && item.status !== 'skipped' && !!item.generated_post
               return (
                 <div key={item.post_id} style={{ borderBottom: '1px solid var(--color-hairline)' }}>
                   <button
@@ -208,6 +353,37 @@ export default function HistoryPage() {
                           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--color-ink)', margin: 0, whiteSpace: 'pre-wrap' }}>
                             {item.generated_post}
                           </p>
+
+                          {/* Retry / Post to LinkedIn button (I-014) */}
+                          {canRetry && (
+                            <div style={{ marginTop: 20 }}>
+                              <button
+                                type="button"
+                                disabled={retrying === item.post_id}
+                                onClick={e => { e.stopPropagation(); handleRetry(item) }}
+                                style={{
+                                  height: 40, padding: '0 20px',
+                                  background: retrying === item.post_id ? 'var(--color-ink-45)' : 'var(--color-oxblood)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  fontFamily: 'var(--font-sans)', fontSize: 14,
+                                  cursor: retrying === item.post_id ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex', alignItems: 'center',
+                                }}
+                              >
+                                {retrying === item.post_id ? 'Posting…' : 'Post to LinkedIn'}
+                              </button>
+                              {retryError[item.post_id] && (
+                                <p style={{
+                                  fontFamily: 'var(--font-sans)', fontSize: 13,
+                                  color: 'var(--color-coral, #E8404A)',
+                                  marginTop: 10, marginBottom: 0,
+                                }}>
+                                  {retryError[item.post_id]}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 28 }}>
