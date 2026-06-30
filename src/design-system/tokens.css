@@ -1,32 +1,34 @@
 /*
   POSTYON — DESIGN TOKENS
-  Direction: Editorial weight. Newsreader + IBM Plex. Oxblood. Sharp corners.
+  Direction: Editorial weight. Newsreader + IBM Plex. Navy + Cream. Sharp corners.
 */
 
 :root {
 
   /* ─── Colour ──────────────────────────────────────────────────── */
 
-  --color-paper:      #F6F4EF;   /* page background */
-  --color-surface:    #FFFFFF;   /* cards, inputs */
-  --color-surface-2:  #FBFAF6;   /* expanded drawer, subtle inset */
-  --color-ink:        #1A1714;   /* primary text */
+  --color-paper:      #E9E8E2;   /* page background — warm parchment */
+  --color-surface:    #F5F4EE;   /* cards, inputs */
+  --color-surface-2:  #F0EFE8;   /* expanded drawer, subtle inset */
+  --color-ink:        #16150F;   /* primary text */
   --color-ink-45:     #6B645C;   /* secondary, meta */
-  --color-ink-light:  #9A938A;   /* placeholder, faded */
-  --color-oxblood:    #7C1D2B;   /* signature — action, active, kicker */
-  --color-ox-wash:    #F2E7E6;   /* selected chip bg, tint */
-  --color-ox-border:  #E3C9C8;   /* selected chip border */
+  --color-ink-light:  #9A958A;   /* placeholder, faded */
+  --color-oxblood:    #1F28A8;   /* signature — action, active, kicker (navy blue) */
+  --color-ox-wash:    rgba(31,40,168,0.08);  /* selected chip bg, tint */
+  --color-ox-border:  rgba(31,40,168,0.22);  /* selected chip border */
+  --color-yellow:     #F5C000;   /* spot accent — CTAs on dark backgrounds */
+  --color-coral:      #E8404A;   /* decorative accent — bars, dots */
   --color-amber:      #B8801F;   /* draft status */
   --color-amber-light:#EAD9B0;   /* draft status: unfilled half */
   --color-green:      #2F6B3C;   /* ready, posted */
-  --color-hairline:   #E2DDD3;   /* borders, rules */
-  --color-hairline-2: #DED8CC;   /* slightly stronger border */
-  --color-hairline-3: #D2CCC0;   /* inactive nav-arrow border */
-  --color-disabled-bg:#EFEBE2;   /* disabled button bg */
+  --color-hairline:   #D8D6CE;   /* borders, rules */
+  --color-hairline-2: #D0CEC5;   /* slightly stronger border */
+  --color-hairline-3: #C8C6BC;   /* inactive nav-arrow border */
+  --color-disabled-bg:#E4E2DA;   /* disabled button bg */
   --color-disabled-text:#B6AEA2; /* disabled button text */
   --color-linkedin:   #0A66C2;   /* Post to LinkedIn button only */
   --color-post-text:  #221E19;   /* post preview body text */
-  --color-mark:       #2E4A35;   /* Postyon Y mark — forest green */
+  --color-mark:       #16150F;   /* dark section background — near-black warm */
 
   /* ─── Legacy aliases (globals.css + existing code) ───────────── */
   --color-bg:          var(--color-paper);
@@ -34,7 +36,7 @@
   --color-text-muted:  var(--color-ink-45);
   --color-accent:      var(--color-oxblood);
   --color-border:      var(--color-hairline);
-  --color-accent-glow: rgba(124, 29, 43, 0.2);
+  --color-accent-glow: rgba(31, 40, 168, 0.2);
 
   /* ─── Typography ────────────────────────────────────────────── */
 
@@ -76,7 +78,7 @@
   /* ─── Shadows ───────────────────────────────────────────────── */
 
   --shadow-focus:  0 0 0 2px var(--color-oxblood);
-  --shadow-card:   0 1px 0 rgba(0,0,0,.04), 0 50px 90px -55px rgba(40,30,20,.5);
+  --shadow-card:   0 1px 0 rgba(0,0,0,.04), 0 50px 90px -55px rgba(22,21,15,.45);
 
   /* ─── Transitions ───────────────────────────────────────────── */
 

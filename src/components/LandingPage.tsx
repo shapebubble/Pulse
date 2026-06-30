@@ -4,8 +4,20 @@ import Link from 'next/link'
 import { useRef } from 'react'
 import { motion, useInView } from 'motion/react'
 
-// ease-out-expo — confident, decisive
 const EXPO = [0.16, 1, 0.3, 1] as const
+
+function LogoMark({ size = 28 }: { size?: number }) {
+  const half = size / 2
+  return (
+    <span style={{ display: 'flex', width: size, height: size, flexShrink: 0 }}>
+      <span style={{ width: half, height: size, background: '#1F28A8' }} />
+      <span style={{ display: 'flex', flexDirection: 'column', width: half }}>
+        <span style={{ width: half, height: half, background: '#F5C000' }} />
+        <span style={{ width: half, height: half, background: '#E8404A' }} />
+      </span>
+    </span>
+  )
+}
 
 const steps = [
   {
@@ -66,25 +78,32 @@ const mq = `
 `
 
 export function LandingPage() {
-  const problem  = useReveal()
-  const steps_   = useReveal()
+  const problem   = useReveal()
+  const steps_    = useReveal()
   const benefits_ = useReveal()
-  const cta      = useReveal()
+  const cta       = useReveal()
 
   return (
     <div style={{ fontFamily: 'var(--font-sans)', background: 'var(--color-paper)', minHeight: '100dvh' }}>
       <style>{mq}</style>
 
-      {/* ─── Nav — no animation, always visible ───────────────── */}
+      {/* ─── Nav — frosted glass sticky ────────────────────────── */}
       <nav className="lp-nav" style={{
-        background: 'var(--color-mark)',
+        position: 'sticky', top: 0, zIndex: 60,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 var(--nav-padding-x-desk)', height: 64,
+        background: 'rgba(233,232,226,0.88)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        borderBottom: '1px solid rgba(22,21,15,0.09)',
       }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em', color: '#F6F4EF' }}>
-          Postyon
-        </span>
-        <Link href="/auth" style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'rgba(246,244,239,0.65)', textDecoration: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <LogoMark size={28} />
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '-0.04em', color: 'var(--color-ink)' }}>
+            Postyon
+          </span>
+        </div>
+        <Link href="/auth" style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink-45)', textDecoration: 'none' }}>
           Sign in
         </Link>
       </nav>
@@ -93,7 +112,7 @@ export function LandingPage() {
       <section className="lp-hero" style={{
         background: 'var(--color-mark)',
         padding: '120px var(--nav-padding-x-desk) 128px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <motion.div
@@ -102,11 +121,13 @@ export function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EXPO }}
             style={{
+              display: 'flex', alignItems: 'center', gap: 8,
               fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.28em',
-              textTransform: 'uppercase', color: 'rgba(246,244,239,0.5)', marginBottom: 32,
+              textTransform: 'uppercase', color: 'rgba(245,244,238,0.5)', marginBottom: 32,
             }}
           >
-            Personal brand · LinkedIn content
+            <span style={{ width: 7, height: 7, background: '#E8404A', display: 'inline-block', flexShrink: 0 }} />
+            AI-assisted · never AI-authored
           </motion.div>
 
           <motion.h1
@@ -116,7 +137,7 @@ export function LandingPage() {
             transition={{ duration: 0.85, ease: EXPO, delay: 0.14 }}
             style={{
               fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 72,
-              lineHeight: 1.06, letterSpacing: '-0.018em', color: '#F6F4EF',
+              lineHeight: 1.06, letterSpacing: '-0.018em', color: '#F5F4EE',
               margin: '0 0 28px', maxWidth: '14ch', textWrap: 'balance',
             }}
           >
@@ -130,7 +151,7 @@ export function LandingPage() {
             transition={{ duration: 0.7, ease: EXPO, delay: 0.34 }}
             style={{
               fontFamily: 'var(--font-sans)', fontSize: 19, lineHeight: 1.6,
-              color: 'rgba(246,244,239,0.65)', maxWidth: '50ch', margin: '0 0 48px',
+              color: 'rgba(245,244,238,0.6)', maxWidth: '50ch', margin: '0 0 48px',
             }}
           >
             Postyon sends you a question based on your expertise. You answer honestly. Then post. Takes five minutes.
@@ -146,8 +167,8 @@ export function LandingPage() {
               style={{
                 display: 'inline-block',
                 fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600,
-                color: '#F6F4EF', background: 'var(--color-oxblood)',
-                border: '1px solid var(--color-oxblood)',
+                color: '#16150F', background: '#F5C000',
+                border: '1px solid #F5C000',
                 padding: '0 32px', lineHeight: '52px',
                 textDecoration: 'none', letterSpacing: '0.01em',
               }}
@@ -225,13 +246,13 @@ export function LandingPage() {
                   {s.n}
                 </div>
 
-                {/* Red bar wipes in from left via scaleX */}
+                {/* Coral bar wipes in from left via scaleX */}
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={steps_.inView ? { scaleX: 1 } : {}}
                   transition={{ duration: 0.4, ease: EXPO, delay: i * 0.13 + 0.18 }}
                   style={{
-                    width: 32, height: 2, background: 'var(--color-oxblood)',
+                    width: 32, height: 2, background: '#E8404A',
                     marginBottom: 20, transformOrigin: 'left center',
                   }}
                 />
@@ -311,7 +332,7 @@ export function LandingPage() {
             transition={{ duration: 0.8, ease: EXPO }}
             style={{
               fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 48,
-              lineHeight: 1.1, color: '#F6F4EF', margin: '0 0 24px', textWrap: 'balance',
+              lineHeight: 1.1, color: '#F5F4EE', margin: '0 0 24px', textWrap: 'balance',
             }}
           >
             Start posting. It's free.
@@ -322,7 +343,7 @@ export function LandingPage() {
             animate={cta.inView ? { opacity: 1 } : {}}
             transition={{ duration: 0.6, ease: EXPO, delay: 0.2 }}
             style={{
-              fontFamily: 'var(--font-sans)', fontSize: 17, color: 'rgba(246,244,239,0.6)',
+              fontFamily: 'var(--font-sans)', fontSize: 17, color: 'rgba(245,244,238,0.55)',
               margin: '0 0 40px', lineHeight: 1.6,
             }}
           >
@@ -339,8 +360,8 @@ export function LandingPage() {
               style={{
                 display: 'inline-block',
                 fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 600,
-                color: '#F6F4EF', background: 'var(--color-oxblood)',
-                border: '1px solid var(--color-oxblood)',
+                color: '#16150F', background: '#F5C000',
+                border: '1px solid #F5C000',
                 padding: '0 32px', lineHeight: '52px',
                 textDecoration: 'none',
               }}
@@ -354,14 +375,17 @@ export function LandingPage() {
       {/* ─── Footer — no animation ────────────────────────────── */}
       <footer className="lp-footer" style={{
         background: 'var(--color-mark)',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
         padding: '32px var(--nav-padding-x-desk)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'rgba(246,244,239,0.5)' }}>
-          Postyon
-        </span>
-        <Link href="/auth" style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(246,244,239,0.4)', textDecoration: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <LogoMark size={22} />
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, letterSpacing: '-0.04em', color: 'rgba(245,244,238,0.45)' }}>
+            Postyon
+          </span>
+        </div>
+        <Link href="/auth" style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'rgba(245,244,238,0.35)', textDecoration: 'none' }}>
           Sign in
         </Link>
       </footer>

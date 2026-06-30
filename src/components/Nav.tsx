@@ -6,28 +6,36 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
 export function PostyonMark({ size = 30 }: { size?: number }) {
+  const half = size / 2
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} fill="none" aria-hidden="true" style={{ overflow: 'visible' }}>
-      <polyline points="76,14 50,52 50,90" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt" strokeLinejoin="miter"/>
-      <line x1="28" y1="22" x2="50" y2="52" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt"/>
-    </svg>
+    <span style={{ display: 'flex', width: size, height: size, flexShrink: 0 }} aria-hidden="true">
+      <span style={{ width: half, height: size, background: '#1F28A8' }} />
+      <span style={{ display: 'flex', flexDirection: 'column', width: half }}>
+        <span style={{ width: half, height: half, background: '#F5C000' }} />
+        <span style={{ width: half, height: half, background: '#E8404A' }} />
+      </span>
+    </span>
   )
 }
 
 export function PostyonWordmark({ size = 26 }: { size?: number }) {
+  const markSize = Math.round(size * 0.92)
+  const half = markSize / 2
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'baseline',
+      display: 'inline-flex', alignItems: 'center', gap: 9,
       fontFamily: 'var(--font-display)', fontWeight: 700,
-      fontSize: size, letterSpacing: '-0.035em', color: 'var(--color-ink)',
+      fontSize: size, letterSpacing: '-0.04em', color: 'var(--color-ink)',
       lineHeight: 1,
     }}>
-      Post
-      <svg viewBox="18 10 64 80" style={{ height: '0.72em', width: 'auto', margin: '0 -0.035em 0 0.07em', overflow: 'visible' }} fill="none" aria-hidden="true">
-        <polyline points="76,14 50,52 50,90" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt" strokeLinejoin="miter"/>
-        <line x1="28" y1="22" x2="50" y2="52" stroke="var(--color-mark)" strokeWidth="13" strokeLinecap="butt"/>
-      </svg>
-      on
+      <span style={{ display: 'flex', width: markSize, height: markSize, flexShrink: 0 }} aria-hidden="true">
+        <span style={{ width: half, height: markSize, background: '#1F28A8' }} />
+        <span style={{ display: 'flex', flexDirection: 'column', width: half }}>
+          <span style={{ width: half, height: half, background: '#F5C000' }} />
+          <span style={{ width: half, height: half, background: '#E8404A' }} />
+        </span>
+      </span>
+      Postyon
     </span>
   )
 }
