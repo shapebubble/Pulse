@@ -356,8 +356,8 @@ export default function Home() {
     <main style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--color-paper)' }}>
       <Nav />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px 64px' }}>
-        <div style={{ width: '100%', maxWidth: 'var(--max-width-home)', padding: '84px 0 72px' }}>
+      <div className="home-outer" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px 64px' }}>
+        <div className="home-inner" style={{ width: '100%', maxWidth: 'var(--max-width-home)', padding: '84px 0 72px' }}>
 
           {step === 'answer' && (
             <>
@@ -372,7 +372,7 @@ export default function Home() {
               </div>
 
               {/* Question */}
-              <h1 style={{
+              <h1 className="home-q-h1" style={{
                 fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 56,
                 lineHeight: 1.12, letterSpacing: '-0.012em', margin: '24px 0 0',
                 color: 'var(--color-ink)', textWrap: 'balance',
@@ -381,7 +381,7 @@ export default function Home() {
               </h1>
 
               {/* Navigation row */}
-              <div style={{
+              <div className="home-q-nav-row" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 margin: '46px 0 0', paddingBottom: 18, borderBottom: '1px solid var(--color-hairline)',
               }}>
@@ -529,6 +529,7 @@ export default function Home() {
               <label htmlFor="answer" className="sr-only">Your answer</label>
               <textarea
                 id="answer"
+                className="home-answer-ta"
                 value={answer}
                 onChange={e => setAnswer(e.target.value)}
                 readOnly={polishing}
@@ -544,7 +545,7 @@ export default function Home() {
               />
 
               {/* Format selector + action buttons */}
-              <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="home-format-row" style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }}>
                   <span style={{ color: 'var(--color-ink-45)', marginRight: 10 }}>Format</span>
                   {(['question-led', 'free-speaking'] as Format[]).map(f => (
@@ -563,7 +564,7 @@ export default function Home() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div className="home-action-btns" style={{ display: 'flex', gap: 12 }}>
                   <button
                     type="button" onClick={polishAnswer}
                     disabled={!answer.trim() || polishing || generating}
@@ -640,6 +641,7 @@ export default function Home() {
                 <label htmlFor="post" className="sr-only">Your post — edit before posting</label>
                 <textarea
                   id="post"
+                  className="home-preview-ta"
                   value={generatedPost}
                   onChange={e => setGeneratedPost(e.target.value)}
                   readOnly={generating}
@@ -653,7 +655,7 @@ export default function Home() {
                   }}
                 />
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }}>
+                <div className="home-char-count-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }}>
                   {charCount > 3000 ? (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: '#E8404A' }}>
                       ⚠ {charCount}/3000 — over LinkedIn limit

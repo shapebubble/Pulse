@@ -223,6 +223,9 @@ const mq = `
     .lp-compare-right { border-left: none !important; border-top: 1.5px solid var(--color-ink) !important; }
     .lp-compare-h2    { font-size: 28px !important; }
     .lp-footer-cols   { grid-template-columns: 1fr !important; gap: 40px !important; }
+    .lp-pricing-h2    { font-size: 32px !important; margin-bottom: 28px !important; }
+    .lp-pricing-card  { padding: 28px 20px !important; }
+    .lp-problem-h2    { font-size: 26px !important; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -346,6 +349,7 @@ export function LandingPage() {
           </div>
 
           <motion.p
+            className="lp-problem-h2"
             initial={{ opacity: 0, y: 28 }}
             animate={problem.inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.85, ease: EXPO }}
@@ -760,6 +764,7 @@ export function LandingPage() {
           </motion.div>
 
           <motion.h2
+            className="lp-pricing-h2"
             initial={{ opacity: 0, y: 20 }}
             animate={pricing_.inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.75, ease: EXPO, delay: 0.08 }}
@@ -778,7 +783,7 @@ export function LandingPage() {
             style={{ maxWidth: 520 }}
           >
             {/* Pricing card */}
-            <div style={{
+            <div className="lp-pricing-card" style={{
               background: '#16150F',
               color: '#F5F4EE',
               padding: 44,

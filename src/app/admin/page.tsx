@@ -241,7 +241,7 @@ export default function AdminPage() {
       <Nav active="account" />
 
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 24px 72px' }}>
-        <div style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
+        <div className="account-inner" style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
 
           <h1 style={{
             fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34,
@@ -328,7 +328,7 @@ export default function AdminPage() {
           <div style={sectionDivider}>
             <div style={sectionLabel}>Connected accounts</div>
 
-            <div style={{
+            <div className="account-li-row" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: 'var(--color-surface)', border: '1px solid var(--color-hairline)',
               padding: '22px 24px', marginTop: 18,
@@ -359,7 +359,7 @@ export default function AdminPage() {
               </div>
 
               {linkedInConnected ? (
-                <div>
+                <div className="account-li-actions">
                   {!showDisconnectConfirm ? (
                     <button
                       type="button" onClick={() => setShowDisconnectConfirm(true)}
@@ -372,7 +372,7 @@ export default function AdminPage() {
                       Disconnect
                     </button>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="account-li-confirm-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account. Are you sure?</span>
                       <button
                         type="button" onClick={handleDisconnect} disabled={disconnecting}

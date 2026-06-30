@@ -1,0 +1,101 @@
+/*
+  POSTYON — RESPONSIVE OVERRIDES
+  All @media rules for app pages live here.
+  Uses !important to override inline React styles.
+  Breakpoint: max-width 767px (mobile).
+  Landing page responsive CSS is in LandingPage.tsx (mq string).
+*/
+
+/* ─── App Nav (shared) ─────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .app-nav              { padding: 14px 18px !important; }
+  .app-nav-wordmark     { display: none !important; }
+  .app-nav-right        { gap: 16px !important; }
+  .app-nav-links        { gap: 16px !important; font-size: 11px !important; }
+}
+
+/* ─── Questions / Home page ────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .home-outer           { padding: 0 18px 48px !important; }
+  .home-inner           { padding: 36px 0 48px !important; }
+  .home-q-h1            { font-size: 32px !important; margin-top: 16px !important; line-height: 1.18 !important; }
+  .home-q-nav-row       { margin-top: 24px !important; }
+
+  /* Format label + 2 format btns LEFT, action btns RIGHT → stack vertically */
+  .home-format-row      { flex-direction: column !important; align-items: flex-start !important; gap: 14px !important; }
+
+  /* Action buttons (Polish / Elaborate / Preview) → full-width row, wrapping */
+  .home-action-btns     { flex-wrap: wrap !important; gap: 8px !important; width: 100% !important; }
+  .home-action-btns > button {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+    font-size: 13px !important;
+    padding: 0 10px !important;
+    height: 44px !important;
+  }
+
+  /* Preview step: char count row (count left, post button right) → stack */
+  .home-char-count-row  {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .home-char-count-row > div {
+    width: 100% !important;
+  }
+  .home-char-count-row button,
+  .home-char-count-row a {
+    width: 100% !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Answer textarea — less padding on mobile */
+  .home-answer-ta       { padding: 18px !important; font-size: 16px !important; min-height: 160px !important; }
+
+  /* Preview textarea */
+  .home-preview-ta      { padding: 18px !important; font-size: 16px !important; min-height: 220px !important; }
+}
+
+/* ─── Account / Admin page ─────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .account-inner        { padding: 28px 0 48px !important; }
+
+  /* LinkedIn connected row: info left + button right → stack */
+  .account-li-row       {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+  }
+  .account-li-actions   { width: 100% !important; }
+
+  /* "Are you sure?" confirm row → stack */
+  .account-li-confirm-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .account-li-confirm-row span { max-width: 100% !important; }
+}
+
+/* ─── History page ─────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .history-inner        { padding: 28px 0 48px !important; }
+
+  /* Expanded panel: answer col + generated post col → single column */
+  .history-expanded-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+    padding: 18px !important;
+  }
+
+  /* Toolbar selects: fill row on mobile */
+  .history-toolbar select { width: 100% !important; }
+
+  /* Item row: topic + date on one row can get wide — let them wrap */
+  .history-item-meta    { flex-wrap: wrap !important; gap: 4px !important; }
+}

@@ -164,7 +164,7 @@ export default function HistoryPage() {
       <Nav active="history" />
 
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 24px 72px' }}>
-        <div style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
+        <div className="history-inner" style={{ width: '100%', maxWidth: 'var(--max-width-account)', padding: '64px 0' }}>
 
           <h1 style={{
             fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 34,
@@ -187,7 +187,7 @@ export default function HistoryPage() {
 
           {/* Toolbar: search + filter + sort (I-010, I-011, I-012) */}
           {!loading && items.length > 0 && (
-            <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+            <div className="history-toolbar" style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
               <input
                 type="search"
                 value={search}
@@ -298,7 +298,7 @@ export default function HistoryPage() {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
+                      <div className="history-item-meta" style={{
                         fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
                         textTransform: 'uppercase', color: 'var(--color-oxblood)', marginBottom: 8,
                         display: 'flex', alignItems: 'center', gap: 16,
@@ -323,7 +323,7 @@ export default function HistoryPage() {
                   </button>
 
                   {isOpen && (
-                    <div style={{
+                    <div className="history-expanded-grid" style={{
                       display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32,
                       background: 'var(--color-surface)',
                       marginBottom: 0, padding: '24px 28px 28px',

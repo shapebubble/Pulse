@@ -84,7 +84,7 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
   })
 
   return (
-    <header style={{
+    <header className="app-nav" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '26px 64px',
       borderBottom: '1px solid var(--color-hairline)',
@@ -92,11 +92,13 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
     }}>
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
         <PostyonMark size={30} />
-        <PostyonWordmark size={26} />
+        <span className="app-nav-wordmark" style={{ display: 'contents' }}>
+          <PostyonWordmark size={26} />
+        </span>
       </Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
-        <nav style={{
+      <div className="app-nav-right" style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
+        <nav className="app-nav-links" style={{
           display: 'flex', gap: 34,
           fontFamily: 'var(--font-mono)', fontSize: 12,
           letterSpacing: '0.14em', textTransform: 'uppercase',
