@@ -180,8 +180,8 @@ export default function HistoryPage() {
               color: 'var(--color-ink-45)', textTransform: 'uppercase', marginTop: 20, marginBottom: 0,
             }}>
               {items.length} post{items.length !== 1 ? 's' : ''}&nbsp;&nbsp;·&nbsp;&nbsp;
-              {items.filter(i => i.status === 'published').length} published&nbsp;&nbsp;·&nbsp;&nbsp;
-              {items.filter(i => i.status === 'draft').length} draft{items.filter(i => i.status === 'draft').length !== 1 ? 's' : ''}
+              {items.filter(i => i.status === 'published').length}{' '}published&nbsp;&nbsp;·&nbsp;&nbsp;
+              {items.filter(i => i.status === 'draft').length}{' '}draft{items.filter(i => i.status === 'draft').length !== 1 ? 's' : ''}
             </p>
           )}
 
@@ -253,7 +253,7 @@ export default function HistoryPage() {
           )}
 
           {/* Results count when filtering is active (I-009) */}
-          {!loading && isFiltering && (
+          {!loading && isFiltering && displayed.length > 0 && (
             <p style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em',
               color: 'var(--color-ink-45)', textTransform: 'uppercase', marginTop: 14, marginBottom: 0,
