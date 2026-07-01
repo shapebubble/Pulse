@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase-server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 /** Returns the Monday of the current week as YYYY-MM-DD (UTC). */
 function getMondayOfCurrentWeek(): string {
@@ -105,11 +106,17 @@ export async function POST() {
   }
 
   // 5. Insert each question individually so partial success is possible
+  // Questions table requires service role (RLS blocks user-auth inserts)
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   const weekStart = getMondayOfCurrentWeek()
 
   const results = await Promise.allSettled(
     generated.map((q) =>
-      supabase
+      adminClient
         .from('questions')
         .insert({ text: q.text, topic: q.topic, week_start: weekStart })
         .select('id')
