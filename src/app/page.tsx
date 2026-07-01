@@ -55,9 +55,11 @@ export default function Home() {
   const [polishing, setPolishing]   = useState(false)
   const [generating, setGenerating] = useState(false)
   const [posting, setPosting]       = useState(false)
+  const [polishingPost, setPolishingPost] = useState(false)
   const [step, setStep]           = useState<'answer' | 'preview' | 'published'>('answer')
   const [postError, setPostError] = useState('')
   const [polishError, setPolishError] = useState('')
+  const [polishPostError, setPolishPostError] = useState('')
   const [generateError, setGenerateError] = useState('')
   const [linkedInConnected, setLinkedInConnected] = useState(false)
   const [loading, setLoading]         = useState(true)
@@ -321,6 +323,28 @@ export default function Home() {
       setPolishError('Something went wrong â€" try again')
     }
     setPolishing(false)
+  }
+
+  const polishPost = async () => {
+    if (!generatedPost.trim() || !q) return
+    setPolishingPost(true)
+    setPolishPostError('')
+    try {
+      const aq = activeQuestion ?? q
+      const res = await fetch('/api/polish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: generatedPost, question: aq.text }),
+      })
+      const data = await res.json()
+      if (data.polished) {
+        setGeneratedPost(data.polished)
+      } else {
+        setPolishPostError('Polish failed — try again')
+      }
+    } catch {
+      setPolishPostError('Something went wrong — try again')
+    }
+    setPolishingPost(false)
   }
 
   const handleRefresh = async () => {
@@ -853,7 +877,20 @@ export default function Home() {
                       {charCount} characters Â· edit freely before posting
                     </span>
                   )}
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* G-014: Polish with AI on preview */}
+                    <button
+                      type="button" onClick={polishPost} disabled={polishingPost || posting}
+                      style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
+                        textTransform: 'uppercase', padding: '0 16px', height: 40,
+                        background: 'none', border: '1px solid var(--color-hairline-3)',
+                        color: 'var(--color-ink-45)', cursor: 'pointer',
+                        opacity: (polishingPost || posting) ? 0.5 : 1,
+                      }}
+                    >
+                      {polishingPost ? 'Polishing…' : 'Polish ✦'}
+                    </button>
                     {linkedInConnected ? (
                       <button
                         type="button" onClick={postToLinkedIn} disabled={posting || charCount > 3000}
@@ -882,6 +919,11 @@ export default function Home() {
                   </div>
                 </div>
 
+                {polishPostError && (
+                  <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
+                    {polishPostError}
+                  </p>
+                )}
                 {(postError || generateError) && (
                   <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
                     <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />

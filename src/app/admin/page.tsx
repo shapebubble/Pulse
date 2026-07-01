@@ -48,6 +48,10 @@ export default function AdminPage() {
   const [emailError, setEmailError]   = useState('')
   const [emailSuccess, setEmailSuccess] = useState(false)
 
+  // Add new topic (J-004/J-007)
+  const [newTopicInput, setNewTopicInput] = useState('')
+  const [topicInputError, setTopicInputError] = useState('')
+
   // Export data (J-025)
   const [exporting, setExporting] = useState(false)
 
@@ -112,6 +116,27 @@ export default function AdminPage() {
     next.has(topic) ? next.delete(topic) : next.add(topic)
     setActiveTopics(next)
 
+    setSavingTopics(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ topics: Array.from(next) }).eq('id', user.id)
+    }
+    setSavingTopics(false)
+  }
+
+  const addTopic = async () => {
+    const topic = newTopicInput.trim()
+    if (!topic) return
+    if (allTopics.includes(topic) || activeTopics.has(topic)) {
+      setTopicInputError('Topic already exists')
+      return
+    }
+    setTopicInputError('')
+    setNewTopicInput('')
+    const next = new Set(activeTopics)
+    next.add(topic)
+    setActiveTopics(next)
+    setAllTopics(prev => [...prev, topic].sort())
     setSavingTopics(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -487,6 +512,41 @@ export default function AdminPage() {
             {activeTopics.size === 1 && (
               <p style={{ fontSize: 13, color: 'var(--color-ink-45)', marginTop: 12, fontStyle: 'italic' }}>
                 You need at least one topic.
+              </p>
+            )}
+
+            {/* J-004: Add new topic input */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 18, maxWidth: 360 }}>
+              <input
+                type="text"
+                value={newTopicInput}
+                onChange={e => { setNewTopicInput(e.target.value); setTopicInputError('') }}
+                onKeyDown={e => e.key === 'Enter' && addTopic()}
+                placeholder="Add a topic…"
+                maxLength={60}
+                style={{
+                  flex: 1, height: 40, padding: '0 12px',
+                  fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
+                  border: '1px solid var(--color-hairline-3)', background: 'var(--color-paper)',
+                  color: 'var(--color-ink)', outline: 'none',
+                }}
+              />
+              <button
+                type="button" onClick={addTopic} disabled={!newTopicInput.trim() || savingTopics}
+                style={{
+                  height: 40, padding: '0 16px',
+                  fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em',
+                  textTransform: 'uppercase', background: 'var(--color-ink)', color: 'var(--color-paper)',
+                  border: 'none', cursor: newTopicInput.trim() ? 'pointer' : 'not-allowed',
+                  opacity: newTopicInput.trim() ? 1 : 0.4,
+                }}
+              >
+                Add
+              </button>
+            </div>
+            {topicInputError && (
+              <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', margin: '6px 0 0' }}>
+                {topicInputError}
               </p>
             )}
           </div>
