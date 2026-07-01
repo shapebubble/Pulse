@@ -56,11 +56,12 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
   const supabase = createClient()
   const router   = useRouter()
 
-  const [open, setOpen]             = useState(false)
-  const [email, setEmail]           = useState('')
-  const [initial, setInitial]       = useState('A')
-  const [signingOut, setSigningOut] = useState(false)
-  const [authed, setAuthed]         = useState<boolean | null>(null)
+  const [open, setOpen]               = useState(false)
+  const [email, setEmail]             = useState('')
+  const [initial, setInitial]         = useState('A')
+  const [displayName, setDisplayName] = useState('')
+  const [signingOut, setSigningOut]   = useState(false)
+  const [authed, setAuthed]           = useState<boolean | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Notification bell state
@@ -72,7 +73,9 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setEmail(user.email ?? '')
-        setInitial((user.email?.[0] ?? 'A').toUpperCase())
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'A'
+        setDisplayName(name)
+        setInitial((name[0] ?? 'A').toUpperCase())
         setAuthed(true)
       } else {
         setAuthed(false)
@@ -272,7 +275,7 @@ export function Nav({ active }: { active?: 'history' | 'account' }) {
             }}>
               <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--color-hairline)' }}>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}>
-                  {initial}
+                  {displayName}
                 </div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-ink-45)', marginTop: 2 }}>
                   {email}
