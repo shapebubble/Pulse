@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [signingOut, setSigningOut]             = useState(false)
   const [loading, setLoading]                   = useState(true)
   const [linkedInError, setLinkedInError]       = useState('')
+  const [linkedInName, setLinkedInName]         = useState<string | null>(null)
 
   // Name editing (J-010/J-011)
   const [editingName, setEditingName]   = useState(false)
@@ -87,6 +88,13 @@ export default function AdminPage() {
         // Filter to only topics that exist in the questions table so size checks work correctly
         const validSaved = saved.filter(t => topicsFromDb.includes(t))
         setActiveTopics(new Set(validSaved.length > 0 ? validSaved : topicsFromDb))
+        // Fetch LinkedIn display name if token is present and not expired
+        if (data.linkedin_access_token && (!data.linkedin_token_expires_at || new Date(data.linkedin_token_expires_at) > new Date())) {
+          fetch('/api/linkedin/profile')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.name) setLinkedInName(d.name) })
+            .catch(() => {})
+        }
       }
 
       // Handle LinkedIn callback params
@@ -99,7 +107,15 @@ export default function AdminPage() {
           .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
           .eq('id', user.id)
           .single()
-        if (refreshed) setProfile(refreshed)
+        if (refreshed) {
+          setProfile(refreshed)
+          if (refreshed.linkedin_access_token && (!refreshed.linkedin_token_expires_at || new Date(refreshed.linkedin_token_expires_at) > new Date())) {
+            fetch('/api/linkedin/profile')
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d?.name) setLinkedInName(d.name) })
+              .catch(() => {})
+          }
+        }
       }
       if (params.get('li_error')) {
         setLinkedInError(`LinkedIn connection failed: ${params.get('li_error')?.replace(/_/g, ' ')}`)
@@ -403,7 +419,7 @@ export default function AdminPage() {
                     }} />
                     <span style={{ fontSize: 12, color: 'var(--color-ink-45)' }}>
                       {linkedInConnected
-                        ? `Connected${tokenDaysLeft !== null ? ` · token expires in ${tokenDaysLeft} days` : ''}`
+                        ? `Connected${linkedInName ? ` as ${linkedInName}` : ''}${tokenDaysLeft !== null ? ` · token expires in ${tokenDaysLeft} days` : ''}`
                         : profile?.linkedin_access_token ? 'Token expired — reconnect' : 'Not connected'}
                     </span>
                   </div>
