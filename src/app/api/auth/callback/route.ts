@@ -12,6 +12,13 @@ export async function GET(req: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
+    const msg = (error.message ?? '').toLowerCase()
+    if (msg.includes('expired') || msg.includes('otp_expired')) {
+      return NextResponse.redirect(`${origin}/auth?error=link_expired`)
+    }
+    if (msg.includes('already used') || msg.includes('already_used')) {
+      return NextResponse.redirect(`${origin}/auth?error=link_already_used`)
+    }
   }
 
   return NextResponse.redirect(`${origin}/auth?error=auth_callback_failed`)

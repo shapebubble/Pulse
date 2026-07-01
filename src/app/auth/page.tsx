@@ -20,6 +20,9 @@ export default function AuthPage() {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
   const [confirmPwError, setConfirmPwError] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendSent, setResendSent] = useState(false)
+  const [resendError, setResendError] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -28,6 +31,8 @@ export default function AuthPage() {
       const messages: Record<string, string> = {
         sso_failed: 'Sign in failed — try again or use email',
         invalid_provider: 'Unknown sign-in method',
+        link_expired: 'Your verification link has expired. Request a new one below.',
+        link_already_used: 'This verification link has already been used. Sign in below.',
       }
       setError(messages[err] ?? 'Something went wrong — try again')
       window.history.replaceState({}, '', '/auth')
@@ -116,15 +121,38 @@ export default function AuthPage() {
           <p style={{ fontSize: 14, color: 'var(--color-ink-45)', margin: '0 0 20px' }}>
             Click the link in the email to activate your account.
           </p>
-          <button
-            type="button"
-            onClick={async () => {
-              await fetch('/api/auth/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: confirmationEmail }) })
-            }}
-            style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}
-          >
-            Resend confirmation email
-          </button>
+          {resendSent ? (
+            <p style={{ fontSize: 14, color: 'var(--color-ink)', margin: 0 }}>Email sent!</p>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={resendLoading}
+                onClick={async () => {
+                  setResendLoading(true)
+                  setResendError('')
+                  try {
+                    const res = await fetch('/api/auth/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: confirmationEmail }) })
+                    if (res.ok) {
+                      setResendSent(true)
+                    } else {
+                      const data = await res.json()
+                      setResendError(data.error || 'Failed to resend — try again')
+                    }
+                  } catch {
+                    setResendError('Network error — try again')
+                  }
+                  setResendLoading(false)
+                }}
+                style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3, cursor: resendLoading ? 'wait' : 'pointer', opacity: resendLoading ? 0.6 : 1 }}
+              >
+                {resendLoading ? 'Sending…' : 'Resend confirmation email'}
+              </button>
+              {resendError && (
+                <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', marginTop: 8, marginBottom: 0 }}>{resendError}</p>
+              )}
+            </>
+          )}
         </div>
       </main>
     )
