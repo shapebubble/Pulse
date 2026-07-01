@@ -83,9 +83,10 @@ export default function AdminPage() {
 
       if (data) {
         setProfile(data)
-        // Start with saved topics, but only ones that exist in the questions table
         const saved: string[] = data.topics ?? []
-        setActiveTopics(new Set(saved.length > 0 ? saved : topicsFromDb))
+        // Filter to only topics that exist in the questions table so size checks work correctly
+        const validSaved = saved.filter(t => topicsFromDb.includes(t))
+        setActiveTopics(new Set(validSaved.length > 0 ? validSaved : topicsFromDb))
       }
 
       // Handle LinkedIn callback params
