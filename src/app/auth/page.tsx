@@ -18,6 +18,8 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [confirmPwError, setConfirmPwError] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -35,12 +37,25 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setConfirmPwError('')
     setLoading(true)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address')
       setLoading(false)
       return
+    }
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters')
+        setLoading(false)
+        return
+      }
+      if (password !== confirmPassword) {
+        setConfirmPwError('Passwords do not match')
+        setLoading(false)
+        return
+      }
     }
     try {
       const res  = await fetch(`/api/auth/${mode}`, {
@@ -85,10 +100,10 @@ export default function AuthPage() {
     return (
       <main style={{ minHeight: '100dvh', background: 'var(--color-paper)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
         <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32 }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 32, textDecoration: 'none' }}>
             <PostyonMark size={46} />
             <PostyonWordmark size={42} />
-          </div>
+          </Link>
           <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 400, fontSize: 28, color: 'var(--color-ink)', margin: '0 0 12px' }}>
             Check your email
           </h2>
@@ -132,10 +147,10 @@ export default function AuthPage() {
 
       <div style={{ width: '100%', maxWidth: 400 }}>
         {/* Wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 8 }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 8, textDecoration: 'none' }}>
           <PostyonMark size={46} />
           <PostyonWordmark size={42} />
-        </div>
+        </Link>
         <p style={{
           textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic',
           fontWeight: 300, fontSize: 19, color: 'var(--color-ink-45)', margin: '0 0 40px',
@@ -255,6 +270,48 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {/* B-019: Password strength hint (signup only) */}
+          {mode === 'signup' && (
+            <p style={{ fontSize: 12, color: password.length > 0 && password.length < 8 ? 'var(--color-oxblood)' : 'var(--color-ink-45)', marginTop: 7, marginBottom: 0 }}>
+              At least 8 characters{password.length >= 8 ? ' ✓' : ''}
+            </p>
+          )}
+
+          {/* B-020: Confirm password (signup only) */}
+          {mode === 'signup' && (
+            <>
+              <label htmlFor="confirm-password" style={{
+                display: 'block', fontFamily: 'var(--font-mono)', fontSize: 11,
+                letterSpacing: '0.14em', textTransform: 'uppercase',
+                color: confirmPwError ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
+                marginTop: 20, marginBottom: 9,
+              }}>
+                Confirm password
+              </label>
+              <input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setConfirmPwError('') }}
+                required
+                autoComplete="new-password"
+                style={{
+                  display: 'block', width: '100%',
+                  background: 'var(--color-surface)',
+                  border: confirmPwError ? '1.5px solid var(--color-oxblood)' : '1px solid var(--color-hairline-2)',
+                  padding: '14px 16px', fontSize: 15, color: 'var(--color-ink)',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              />
+              {confirmPwError && (
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 8 }}>
+                  <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+                  {confirmPwError}
+                </p>
+              )}
+            </>
+          )}
+
           {mode === 'login' && forgotStep === 'none' && (
             <div style={{ textAlign: 'right', marginTop: 8 }}>
               <button
@@ -326,14 +383,14 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            disabled={loading || (mode === 'signup' && !termsAccepted)}
+            disabled={loading || (mode === 'signup' && (!termsAccepted || !confirmPassword))}
             style={{
               display: 'block', width: '100%', marginTop: 24,
               fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500,
               color: 'var(--color-paper)', background: 'var(--color-oxblood)',
               border: '1px solid var(--color-oxblood)', height: 52,
-              opacity: (loading || (mode === 'signup' && !termsAccepted)) ? 0.6 : 1,
-              cursor: (mode === 'signup' && !termsAccepted) ? 'not-allowed' : 'pointer',
+              opacity: (loading || (mode === 'signup' && (!termsAccepted || !confirmPassword))) ? 0.6 : 1,
+              cursor: (mode === 'signup' && (!termsAccepted || !confirmPassword)) ? 'not-allowed' : 'pointer',
             }}
           >
             {loading
@@ -346,7 +403,7 @@ export default function AuthPage() {
           {mode === 'login' ? 'New here? ' : 'Already have an account? '}
           <button
             type="button"
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setTermsAccepted(false) }}
+            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setTermsAccepted(false); setConfirmPassword(''); setConfirmPwError('') }}
             style={{
               background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 'inherit',
               color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3,

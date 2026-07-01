@@ -74,12 +74,15 @@ export default function Home() {
 
   // Image builder state
   const [addImage, setAddImage]         = useState(false)
+  const [imgMode, setImgMode]           = useState<'generate' | 'upload'>('generate')
   const [imgFont, setImgFont]           = useState<'serif' | 'sans' | 'mono'>('serif')
   const [imgColor1, setImgColor1]       = useState('#1F28A8')
   const [imgColor2, setImgColor2]       = useState('#E8404A')
   const [imgAngle, setImgAngle]         = useState(135)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [uploadError, setUploadError]   = useState('')
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Keep a ref to the latest answer so nav handlers can flush before index change
   const answerRef = useRef(answer)
@@ -283,10 +286,28 @@ export default function Home() {
     setImageDataUrl(canvas.toDataURL('image/jpeg', 0.92))
   }, [imgFont, imgColor1, imgColor2, imgAngle, activeQuestion, q])
 
-  // Regenerate whenever image options change and addImage is true
+  // Regenerate whenever image options change and addImage is on generate mode
   useEffect(() => {
-    if (addImage) generateImage()
-  }, [addImage, generateImage])
+    if (addImage && imgMode === 'generate') generateImage()
+  }, [addImage, imgMode, generateImage])
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('')
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, GIF, or WebP images are allowed')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image must be under 5 MB')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = ev => setImageDataUrl(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -788,7 +809,7 @@ export default function Home() {
                 <div style={{ marginTop: 18 }}>
                   <button
                     type="button"
-                    onClick={() => { setAddImage(v => !v); if (!addImage) generateImage() }}
+                    onClick={() => { setAddImage(v => !v); setImageDataUrl(null); setUploadError('') }}
                     style={{
                       fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
                       textTransform: 'uppercase', color: addImage ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
@@ -801,51 +822,109 @@ export default function Home() {
 
                   {addImage && (
                     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      {/* Controls row */}
-                      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {/* Font */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
-                          FONT
-                          <select
-                            value={imgFont}
-                            onChange={e => setImgFont(e.target.value as 'serif' | 'sans' | 'mono')}
-                            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--color-hairline-3)', background: 'var(--color-surface)', padding: '4px 8px' }}
+                      {/* G-015: Mode switcher — Generate vs Upload */}
+                      <div style={{ display: 'flex', gap: 0 }}>
+                        {(['generate', 'upload'] as const).map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => { setImgMode(m); setImageDataUrl(null); setUploadError('') }}
+                            style={{
+                              fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em',
+                              textTransform: 'uppercase', padding: '5px 14px',
+                              background: imgMode === m ? 'var(--color-ink)' : 'none',
+                              color: imgMode === m ? 'var(--color-paper)' : 'var(--color-ink-45)',
+                              border: '1px solid var(--color-hairline-3)',
+                              marginRight: -1, cursor: 'pointer',
+                            }}
                           >
-                            <option value="serif">Serif</option>
-                            <option value="sans">Sans</option>
-                            <option value="mono">Mono</option>
-                          </select>
-                        </label>
-                        {/* Color 1 */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
-                          FROM
-                          <input type="color" value={imgColor1} onChange={e => setImgColor1(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
-                        </label>
-                        {/* Color 2 */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
-                          TO
-                          <input type="color" value={imgColor2} onChange={e => setImgColor2(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
-                        </label>
-                        {/* Angle */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
-                          ANGLE
-                          <input type="range" min={0} max={360} value={imgAngle} onChange={e => setImgAngle(Number(e.target.value))} style={{ width: 80 }} />
-                          <span>{imgAngle}°</span>
-                        </label>
-                        {/* Re-generate */}
-                        <button
-                          type="button" onClick={generateImage}
-                          style={{
-                            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
-                            textTransform: 'uppercase', padding: '5px 12px',
-                            border: '1px solid var(--color-ink)', background: 'none', cursor: 'pointer',
-                          }}
-                        >
-                          ↻ Regenerate
-                        </button>
+                            {m === 'generate' ? 'Generate' : 'Upload own'}
+                          </button>
+                        ))}
                       </div>
 
-                      {/* Hidden canvas + image preview */}
+                      {imgMode === 'generate' && (
+                        <>
+                          {/* Controls row */}
+                          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {/* Font */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                              FONT
+                              <select
+                                value={imgFont}
+                                onChange={e => setImgFont(e.target.value as 'serif' | 'sans' | 'mono')}
+                                style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--color-hairline-3)', background: 'var(--color-surface)', padding: '4px 8px' }}
+                              >
+                                <option value="serif">Serif</option>
+                                <option value="sans">Sans</option>
+                                <option value="mono">Mono</option>
+                              </select>
+                            </label>
+                            {/* Color 1 */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                              FROM
+                              <input type="color" value={imgColor1} onChange={e => setImgColor1(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
+                            </label>
+                            {/* Color 2 */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                              TO
+                              <input type="color" value={imgColor2} onChange={e => setImgColor2(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
+                            </label>
+                            {/* Angle */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                              ANGLE
+                              <input type="range" min={0} max={360} value={imgAngle} onChange={e => setImgAngle(Number(e.target.value))} style={{ width: 80 }} />
+                              <span>{imgAngle}°</span>
+                            </label>
+                            {/* Re-generate */}
+                            <button
+                              type="button" onClick={generateImage}
+                              style={{
+                                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
+                                textTransform: 'uppercase', padding: '5px 12px',
+                                border: '1px solid var(--color-ink)', background: 'none', cursor: 'pointer',
+                              }}
+                            >
+                              ↻ Regenerate
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* G-015: Upload own image */}
+                      {imgMode === 'upload' && (
+                        <div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={handleImageUpload}
+                            style={{ display: 'none' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
+                              textTransform: 'uppercase', padding: '8px 16px',
+                              border: '1px solid var(--color-hairline-3)', background: 'var(--color-surface)',
+                              color: 'var(--color-ink-45)', cursor: 'pointer',
+                            }}
+                          >
+                            Choose image…
+                          </button>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', color: 'var(--color-ink-45)', marginLeft: 12 }}>
+                            JPEG · PNG · GIF · WebP · max 5 MB
+                          </span>
+                          {uploadError && (
+                            <p role="alert" style={{ fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 8, marginBottom: 0 }}>
+                              {uploadError}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Hidden canvas (generate mode only) + shared preview */}
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
                       {imageDataUrl && (
                         <div>
@@ -855,7 +934,7 @@ export default function Home() {
                             style={{ width: '100%', maxWidth: 480, height: 'auto', display: 'block', border: '1px solid var(--color-hairline)' }}
                           />
                           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', color: 'var(--color-ink-45)', marginTop: 6 }}>
-                            1200×628px · will be uploaded with your post
+                            {imgMode === 'generate' ? '1200×628px · ' : ''}will be uploaded with your post
                           </p>
                         </div>
                       )}
