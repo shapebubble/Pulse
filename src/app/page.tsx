@@ -173,7 +173,7 @@ export default function Home() {
     }
   }, [])
 
-  // Autosave 800ms after typing stops (silent â€” no indicator)
+  // Autosave 800ms after typing stops (silent â€" no indicator)
   useEffect(() => {
     if (!answer || !q || customQuestion) return
     const newStatus = post?.status === 'new' || !post?.status ? 'draft' : post.status
@@ -315,10 +315,10 @@ export default function Home() {
           await savePost({ question_id: q.id, answer: data.polished, status: s as Post['status'] })
         }
       } else {
-        setPolishError('Polish failed â€” try again')
+        setPolishError('Polish failed â€" try again')
       }
     } catch {
-      setPolishError('Something went wrong â€” try again')
+      setPolishError('Something went wrong â€" try again')
     }
     setPolishing(false)
   }
@@ -331,10 +331,10 @@ export default function Home() {
       if (res.ok) {
         window.location.reload()
       } else {
-        setRefreshError('Could not generate new questions â€” try again later')
+        setRefreshError('Could not generate new questions â€" try again later')
       }
     } catch {
-      setRefreshError('Something went wrong â€” try again')
+      setRefreshError('Something went wrong â€" try again')
     }
     setRefreshing(false)
   }
@@ -368,10 +368,10 @@ export default function Home() {
         }
         setStep('preview')
       } else {
-        setGenerateError('Elaboration failed â€” try again')
+        setGenerateError('Elaboration failed â€" try again')
       }
     } catch {
-      setGenerateError('Something went wrong â€” try again')
+      setGenerateError('Something went wrong â€" try again')
     }
     setGenerating(false)
   }
@@ -394,7 +394,7 @@ export default function Home() {
         if (uploadRes.ok && uploadData.mediaUrn) {
           mediaUrn = uploadData.mediaUrn
         } else {
-          setPostError('Image upload failed â€” post without image or try again')
+          setPostError('Image upload failed â€" post without image or try again')
           setPosting(false)
           return
         }
@@ -411,13 +411,13 @@ export default function Home() {
         setPublishedReady(false)
         setTimeout(() => setPublishedReady(true), 3000)
       } else if (res.status === 403 && data.error?.includes('expired')) {
-        setPostError('LinkedIn connection expired â€” reconnect in Account')
+        setPostError('LinkedIn connection expired â€" reconnect in Account')
       } else {
-        setPostError('Failed to post â€” try again')
+        setPostError('Failed to post â€" try again')
         await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'failed' })
       }
     } catch {
-      setPostError('Something went wrong â€” try again')
+      setPostError('Something went wrong â€" try again')
       await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'failed' })
     }
     setPosting(false)
@@ -448,7 +448,7 @@ export default function Home() {
         <Nav />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: 'var(--color-ink-45)', textAlign: 'center', maxWidth: '40ch' }}>
-            No questions for this week yet â€” check back soon.
+            No questions for this week yet â€" check back soon.
           </p>
         </div>
       </main>
@@ -628,7 +628,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Answer textarea â€” readOnly during AI polish */}
+              {/* Answer textarea â€" readOnly during AI polish */}
               <label htmlFor="answer" className="sr-only">Your answer</label>
               <textarea
                 id="answer"
@@ -743,7 +743,7 @@ export default function Home() {
               </div>
 
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
-                <label htmlFor="post" className="sr-only">Your post â€” edit before posting</label>
+                <label htmlFor="post" className="sr-only">Your post â€" edit before posting</label>
                 <textarea
                   id="post"
                   className="home-preview-ta"
@@ -842,7 +842,7 @@ export default function Home() {
                 <div className="home-char-count-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }}>
                   {charCount > 3000 ? (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: '#E8404A' }}>
-                      âš  {charCount}/3000 â€” over LinkedIn limit
+                      âš  {charCount}/3000 â€" over LinkedIn limit
                     </span>
                   ) : charCount > 2700 ? (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-amber)' }}>
@@ -934,7 +934,7 @@ export default function Home() {
               {publishedReady && (
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                   <button
-                    type=”button”
+                    type="button"
                     onClick={() => { setStep('answer'); setGeneratedPost(''); setIndex(i => Math.min(i + 1, questions.length - 1)) }}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
@@ -945,7 +945,7 @@ export default function Home() {
                     Next question →
                   </button>
                   <a
-                    href=”/history”
+                    href="/history"
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                       color: 'var(--color-ink)', background: 'none',
