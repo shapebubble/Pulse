@@ -81,6 +81,7 @@ export default function Home() {
   const [imgAngle, setImgAngle]         = useState(135)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [uploadError, setUploadError]   = useState('')
+  const [generateImageError, setGenerateImageError] = useState('')
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -219,8 +220,12 @@ export default function Home() {
   }, [q, post, savePost])
 
   const generateImage = useCallback(() => {
+    setGenerateImageError('')
     const canvas = canvasRef.current
-    if (!canvas || !activeQuestion) return
+    if (!canvas || !activeQuestion) {
+      setGenerateImageError('Canvas unavailable — try refreshing the page')
+      return
+    }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const W = 1200, H = 628
@@ -758,6 +763,13 @@ export default function Home() {
                   {polishError}
                 </p>
               )}
+
+              {generateError && (
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 10 }}>
+                  <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+                  {generateError}
+                </p>
+              )}
             </>
           )}
 
@@ -926,6 +938,11 @@ export default function Home() {
 
                       {/* Hidden canvas (generate mode only) + shared preview */}
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      {generateImageError && (
+                        <p role="alert" style={{ fontSize: 12.5, color: 'var(--color-oxblood)', marginTop: 8, marginBottom: 0 }}>
+                          {generateImageError}
+                        </p>
+                      )}
                       {imageDataUrl && (
                         <div>
                           <img
@@ -972,12 +989,12 @@ export default function Home() {
                     </button>
                     {linkedInConnected ? (
                       <button
-                        type="button" onClick={postToLinkedIn} disabled={posting || charCount > 3000}
+                        type="button" onClick={postToLinkedIn} disabled={posting || charCount > 3000 || !generatedPost.trim()}
                         style={{
                           fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                           color: '#FFFFFF', background: 'var(--color-linkedin)',
                           border: '1px solid var(--color-linkedin)', padding: '0 26px', height: 48,
-                          opacity: (posting || charCount > 3000) ? 0.6 : 1,
+                          opacity: (posting || charCount > 3000 || !generatedPost.trim()) ? 0.6 : 1,
                         }}
                       >
                         {posting ? 'Posting…' : 'Post to LinkedIn →'}
@@ -1003,10 +1020,10 @@ export default function Home() {
                     {polishPostError}
                   </p>
                 )}
-                {(postError || generateError) && (
+                {postError && (
                   <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--color-oxblood)', marginTop: 12 }}>
                     <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
-                    {postError || generateError}
+                    {postError}
                     {postError.includes('expired') && (
                       <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>→ Account</a>
                     )}

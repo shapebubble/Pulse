@@ -56,12 +56,22 @@ const benefits = [
 const DEMO_Q = 'Is the brief dead? What replaced it in your work?'
 const DEMO_A = "Honestly? The brief is dying. Clients don't want 40 pages anymore."
 
-function DemoCard() {
+function DemoCard({ active }: { active: boolean }) {
   const [qIdx, setQIdx] = useState(0)
   const [aIdx, setAIdx] = useState(0)
   const [phase, setPhase] = useState<0 | 1 | 2>(0)
 
+  // Reset and start cycling when section comes into view
   useEffect(() => {
+    if (active) {
+      setPhase(0)
+      setQIdx(0)
+      setAIdx(0)
+    }
+  }, [active])
+
+  useEffect(() => {
+    if (!active) return
     if (phase === 0) {
       if (qIdx < DEMO_Q.length) {
         const t = setTimeout(() => setQIdx(i => i + 1), 48)
@@ -81,7 +91,7 @@ function DemoCard() {
     // phase 2 — hold post, then loop
     const t = setTimeout(() => { setPhase(0); setQIdx(0); setAIdx(0) }, 3200)
     return () => clearTimeout(t)
-  }, [phase, qIdx, aIdx])
+  }, [phase, qIdx, aIdx, active])
 
   return (
     <div className="lp-demo-card" style={{
@@ -262,9 +272,10 @@ export function LandingPage() {
             Postyon
           </span>
         </div>
-        <Link href="/auth" style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink-45)', textDecoration: 'none' }}>
-          Sign in
-        </Link>
+        <div style={{ display: 'flex', gap: 20, fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          <Link href="/auth" style={{ color: 'var(--color-ink-45)', textDecoration: 'none' }}>Log in</Link>
+          <Link href="/auth" style={{ color: 'var(--color-paper)', background: 'var(--color-oxblood)', padding: '6px 14px', textDecoration: 'none' }}>Sign up</Link>
+        </div>
       </nav>
 
       {/* ─── Hero — page-load choreography ────────────────────── */}
@@ -455,7 +466,7 @@ export function LandingPage() {
             animate={demo_.inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.75, ease: EXPO, delay: 0.14 }}
           >
-            <DemoCard />
+            <DemoCard active={demo_.inView} />
           </motion.div>
         </div>
       </section>
@@ -1001,18 +1012,21 @@ export function LandingPage() {
               {/* Social icons */}
               <div style={{ display: 'flex', gap: 8 }}>
                 {[
-                  { label: 'in', title: 'LinkedIn' },
-                  { label: 'X',  title: 'X / Twitter' },
-                  { label: 'f',  title: 'Facebook' },
+                  { label: 'in', title: 'LinkedIn',    href: 'https://www.linkedin.com/company/postyon' },
+                  { label: 'X',  title: 'X / Twitter', href: 'https://x.com/postyon' },
+                  { label: 'f',  title: 'Facebook',    href: 'https://www.facebook.com/postyon' },
                 ].map(icon => (
-                  <div
+                  <a
                     key={icon.label}
+                    href={icon.href}
                     title={icon.title}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     style={{
                       width: 34, height: 34,
                       border: '1px solid rgba(255,255,255,0.12)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
+                      flexShrink: 0, textDecoration: 'none',
                     }}
                   >
                     <span style={{
@@ -1021,7 +1035,7 @@ export function LandingPage() {
                     }}>
                       {icon.label}
                     </span>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
