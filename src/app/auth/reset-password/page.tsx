@@ -19,20 +19,8 @@ export default function ResetPasswordPage() {
   const [linkError, setLinkError] = useState('')
 
   useEffect(() => {
-    // Supabase fires PASSWORD_RECOVERY event when the reset link is followed
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessionReady(true)
-      }
-    })
-
-    // Also check if there's already a session (page reload after recovery)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true)
-    })
-
-    // Check for error in URL hash (expired/used links land with #error=...)
     const hash = window.location.hash
+
     if (hash.includes('error=')) {
       const params = new URLSearchParams(hash.replace('#', ''))
       const errorCode = params.get('error_code')
@@ -44,8 +32,35 @@ export default function ResetPasswordPage() {
       } else {
         setLinkError('This reset link is invalid. Request a new one.')
       }
+      return
     }
 
+    // @supabase/ssr's createBrowserClient doesn't auto-process hash tokens —
+    // manually extract and set the session when a recovery token lands in the hash
+    if (hash.includes('type=recovery')) {
+      const params = new URLSearchParams(hash.replace('#', ''))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      if (accessToken && refreshToken) {
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ data, error }) => {
+            if (error || !data.session) {
+              setLinkError('This reset link is invalid or expired. Request a new one.')
+            } else {
+              setSessionReady(true)
+            }
+          })
+        return
+      }
+    }
+
+    // Fallback for standard PKCE/cookie flow (page reload after session already set)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setSessionReady(true)
+    })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
