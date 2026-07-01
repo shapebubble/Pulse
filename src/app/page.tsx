@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Nav } from '@/components/Nav'
@@ -18,7 +18,7 @@ interface Post {
   answer: string
   generated_post: string
   format: string
-  status: 'new' | 'draft' | 'done' | 'published' | 'skipped'
+  status: 'new' | 'draft' | 'done' | 'published' | 'skipped' | 'failed'
   linkedin_post_id?: string
 }
 
@@ -70,6 +70,15 @@ export default function Home() {
   const [customQText, setCustomQText] = useState('')
   const [customQuestion, setCustomQuestion] = useState<Question | null>(null)
 
+  // Image builder state
+  const [addImage, setAddImage]         = useState(false)
+  const [imgFont, setImgFont]           = useState<'serif' | 'sans' | 'mono'>('serif')
+  const [imgColor1, setImgColor1]       = useState('#1F28A8')
+  const [imgColor2, setImgColor2]       = useState('#E8404A')
+  const [imgAngle, setImgAngle]         = useState(135)
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   // Keep a ref to the latest answer so nav handlers can flush before index change
   const answerRef = useRef(answer)
   answerRef.current = answer
@@ -107,7 +116,7 @@ export default function Home() {
       const questionsToShow = filtered.length > 0 ? filtered : allQs
       setQuestions(questionsToShow)
 
-      // Set initial index: URL param → first unanswered → newest (index 0)
+      // Set initial index: URL param â†’ first unanswered â†’ newest (index 0)
       const urlParams = new URLSearchParams(window.location.search)
       const questionId = urlParams.get('question')
       let initialIndex = 0
@@ -164,7 +173,7 @@ export default function Home() {
     }
   }, [])
 
-  // Autosave 800ms after typing stops (silent — no indicator)
+  // Autosave 800ms after typing stops (silent â€” no indicator)
   useEffect(() => {
     if (!answer || !q || customQuestion) return
     const newStatus = post?.status === 'new' || !post?.status ? 'draft' : post.status
@@ -204,6 +213,79 @@ export default function Home() {
     setIndex(i)
   }, [q, post, savePost])
 
+  const generateImage = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !activeQuestion) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const W = 1200, H = 628
+    canvas.width = W; canvas.height = H
+
+    // Gradient background
+    const angle = (imgAngle * Math.PI) / 180
+    const grd = ctx.createLinearGradient(
+      W / 2 - Math.cos(angle) * W / 2, H / 2 - Math.sin(angle) * H / 2,
+      W / 2 + Math.cos(angle) * W / 2, H / 2 + Math.sin(angle) * H / 2,
+    )
+    grd.addColorStop(0, imgColor1)
+    grd.addColorStop(1, imgColor2)
+    ctx.fillStyle = grd
+    ctx.fillRect(0, 0, W, H)
+
+    // Question text
+    const fontMap = { serif: 'Georgia', sans: 'Arial', mono: 'Courier New' }
+    const fontFace = fontMap[imgFont]
+    const padding = 80
+    const maxWidth = W - padding * 2
+    ctx.fillStyle = '#FFFFFF'
+    ctx.textAlign = 'left'
+
+    // Word wrap
+    const words = (activeQuestion ?? q)!.text.split(' ')
+    let fontSize = 72
+    let lines: string[] = []
+
+    const wrap = (fs: number) => {
+      ctx.font = `300 ${fs}px ${fontFace}`
+      lines = []
+      let line = ''
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line); line = word
+        } else { line = test }
+      }
+      if (line) lines.push(line)
+    }
+
+    wrap(fontSize)
+    while (lines.length > 4 && fontSize > 32) { fontSize -= 4; wrap(fontSize) }
+
+    const lineH = fontSize * 1.3
+    const totalH = lines.length * lineH
+    let y = (H - totalH) / 2 + fontSize
+
+    ctx.font = `300 ${fontSize}px ${fontFace}`
+    for (const line of lines) {
+      ctx.fillText(line, padding, y)
+      y += lineH
+    }
+
+    // Postyon logo text bottom-right
+    ctx.font = `500 20px Arial`
+    ctx.textAlign = 'right'
+    ctx.globalAlpha = 0.5
+    ctx.fillText('POSTYON', W - padding, H - padding + 20)
+    ctx.globalAlpha = 1
+
+    setImageDataUrl(canvas.toDataURL('image/jpeg', 0.92))
+  }, [imgFont, imgColor1, imgColor2, imgAngle, activeQuestion, q])
+
+  // Regenerate whenever image options change and addImage is true
+  useEffect(() => {
+    if (addImage) generateImage()
+  }, [addImage, generateImage])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'TEXTAREA') return
@@ -233,10 +315,10 @@ export default function Home() {
           await savePost({ question_id: q.id, answer: data.polished, status: s as Post['status'] })
         }
       } else {
-        setPolishError('Polish failed — try again')
+        setPolishError('Polish failed â€” try again')
       }
     } catch {
-      setPolishError('Something went wrong — try again')
+      setPolishError('Something went wrong â€” try again')
     }
     setPolishing(false)
   }
@@ -249,10 +331,10 @@ export default function Home() {
       if (res.ok) {
         window.location.reload()
       } else {
-        setRefreshError('Could not generate new questions — try again later')
+        setRefreshError('Could not generate new questions â€” try again later')
       }
     } catch {
-      setRefreshError('Something went wrong — try again')
+      setRefreshError('Something went wrong â€” try again')
     }
     setRefreshing(false)
   }
@@ -286,10 +368,10 @@ export default function Home() {
         }
         setStep('preview')
       } else {
-        setGenerateError('Elaboration failed — try again')
+        setGenerateError('Elaboration failed â€” try again')
       }
     } catch {
-      setGenerateError('Something went wrong — try again')
+      setGenerateError('Something went wrong â€” try again')
     }
     setGenerating(false)
   }
@@ -299,9 +381,28 @@ export default function Home() {
     setPosting(true)
     setPostError('')
     try {
+      let mediaUrn: string | undefined
+
+      // If image is attached, upload it first
+      if (addImage && imageDataUrl) {
+        const uploadRes = await fetch('/api/linkedin/upload-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageDataUrl }),
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadRes.ok && uploadData.mediaUrn) {
+          mediaUrn = uploadData.mediaUrn
+        } else {
+          setPostError('Image upload failed â€” post without image or try again')
+          setPosting(false)
+          return
+        }
+      }
+
       const res = await fetch('/api/linkedin/post', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: generatedPost }),
+        body: JSON.stringify({ text: generatedPost, mediaUrn }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -310,12 +411,14 @@ export default function Home() {
         setPublishedReady(false)
         setTimeout(() => setPublishedReady(true), 3000)
       } else if (res.status === 403 && data.error?.includes('expired')) {
-        setPostError('LinkedIn connection expired — reconnect in Account')
+        setPostError('LinkedIn connection expired â€” reconnect in Account')
       } else {
-        setPostError('Failed to post — try again')
+        setPostError('Failed to post â€” try again')
+        await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'failed' })
       }
     } catch {
-      setPostError('Something went wrong — try again')
+      setPostError('Something went wrong â€” try again')
+      await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'failed' })
     }
     setPosting(false)
   }
@@ -345,7 +448,7 @@ export default function Home() {
         <Nav />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: 'var(--color-ink-45)', textAlign: 'center', maxWidth: '40ch' }}>
-            No questions for this week yet — check back soon.
+            No questions for this week yet â€” check back soon.
           </p>
         </div>
       </main>
@@ -394,7 +497,7 @@ export default function Home() {
                       color: 'var(--color-ink-light)', background: 'none', fontSize: 15,
                       cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.4 : 1,
                     }}
-                  >‹</button>
+                  >â€¹</button>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, letterSpacing: '0.12em', color: 'var(--color-ink)' }}>
                     {String(index + 1).padStart(2, '0')}{' '}
                     <span style={{ color: 'var(--color-disabled-text)' }}>/ {String(questions.length).padStart(2, '0')}</span>
@@ -408,7 +511,7 @@ export default function Home() {
                       cursor: index === questions.length - 1 ? 'not-allowed' : 'pointer',
                       opacity: index === questions.length - 1 ? 0.4 : 1,
                     }}
-                  >›</button>
+                  >â€º</button>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -440,7 +543,7 @@ export default function Home() {
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: 0,
                   }}
                 >
-                  {refreshing ? 'Refreshing…' : '↻  New questions'}
+                  {refreshing ? 'Refreshingâ€¦' : 'â†»  New questions'}
                 </button>
                 {!customQuestion && (
                   <button
@@ -465,7 +568,7 @@ export default function Home() {
                       padding: '3px 10px',
                     }}
                   >
-                    × Using custom question
+                    Ã— Using custom question
                   </button>
                 )}
               </div>
@@ -525,7 +628,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Answer textarea — readOnly during AI polish */}
+              {/* Answer textarea â€” readOnly during AI polish */}
               <label htmlFor="answer" className="sr-only">Your answer</label>
               <textarea
                 id="answer"
@@ -575,7 +678,7 @@ export default function Home() {
                       opacity: (!answer.trim() || polishing || generating) ? 0.35 : 1,
                     }}
                   >
-                    {polishing ? 'Polishing…' : 'Polish with AI ✦'}
+                    {polishing ? 'Polishingâ€¦' : 'Polish with AI âœ¦'}
                   </button>
                   <button
                     type="button" onClick={elaboratePost}
@@ -587,7 +690,7 @@ export default function Home() {
                       opacity: (!answer.trim() || generating || polishing) ? 0.35 : 1,
                     }}
                   >
-                    {generating ? 'Elaborating…' : 'Elaborate with AI ✦'}
+                    {generating ? 'Elaboratingâ€¦' : 'Elaborate with AI âœ¦'}
                   </button>
                   <button
                     type="button" onClick={previewPost}
@@ -599,7 +702,7 @@ export default function Home() {
                       opacity: (!answer.trim() || polishing || generating) ? 0.45 : 1,
                     }}
                   >
-                    Preview →
+                    Preview â†’
                   </button>
                 </div>
               </div>
@@ -626,11 +729,13 @@ export default function Home() {
                     setGeneratedPost('')
                     setStep('answer')
                     setRegenPending(false)
+                    setAddImage(false)
+                    setImageDataUrl(null)
                     if (q) savePost({ question_id: q.id, answer, generated_post: '', format, status: 'draft' })
                   }}
                   style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  ← Back
+                  â† Back
                 </button>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-oxblood)' }}>
                   Post preview
@@ -638,7 +743,7 @@ export default function Home() {
               </div>
 
               <div style={{ maxWidth: 'var(--max-width-preview)', margin: '34px auto 0' }}>
-                <label htmlFor="post" className="sr-only">Your post — edit before posting</label>
+                <label htmlFor="post" className="sr-only">Your post â€” edit before posting</label>
                 <textarea
                   id="post"
                   className="home-preview-ta"
@@ -655,10 +760,89 @@ export default function Home() {
                   }}
                 />
 
+                {/* Image builder */}
+                <div style={{ marginTop: 18 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAddImage(v => !v); if (!addImage) generateImage() }}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', color: addImage ? 'var(--color-oxblood)' : 'var(--color-ink-45)',
+                      background: 'none', border: `1px solid ${addImage ? 'var(--color-oxblood)' : 'var(--color-hairline-3)'}`,
+                      padding: '6px 14px', cursor: 'pointer',
+                    }}
+                  >
+                    {addImage ? '✕ Remove image' : '+ Add image'}
+                  </button>
+
+                  {addImage && (
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {/* Controls row */}
+                      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {/* Font */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                          FONT
+                          <select
+                            value={imgFont}
+                            onChange={e => setImgFont(e.target.value as 'serif' | 'sans' | 'mono')}
+                            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--color-hairline-3)', background: 'var(--color-surface)', padding: '4px 8px' }}
+                          >
+                            <option value="serif">Serif</option>
+                            <option value="sans">Sans</option>
+                            <option value="mono">Mono</option>
+                          </select>
+                        </label>
+                        {/* Color 1 */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                          FROM
+                          <input type="color" value={imgColor1} onChange={e => setImgColor1(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
+                        </label>
+                        {/* Color 2 */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                          TO
+                          <input type="color" value={imgColor2} onChange={e => setImgColor2(e.target.value)} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer' }} />
+                        </label>
+                        {/* Angle */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)' }}>
+                          ANGLE
+                          <input type="range" min={0} max={360} value={imgAngle} onChange={e => setImgAngle(Number(e.target.value))} style={{ width: 80 }} />
+                          <span>{imgAngle}°</span>
+                        </label>
+                        {/* Re-generate */}
+                        <button
+                          type="button" onClick={generateImage}
+                          style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em',
+                            textTransform: 'uppercase', padding: '5px 12px',
+                            border: '1px solid var(--color-ink)', background: 'none', cursor: 'pointer',
+                          }}
+                        >
+                          ↻ Regenerate
+                        </button>
+                      </div>
+
+                      {/* Hidden canvas + image preview */}
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      {imageDataUrl && (
+                        <div>
+                          <img
+                            src={imageDataUrl}
+                            alt="Post image preview"
+                            style={{ width: '100%', maxWidth: 480, height: 'auto', display: 'block', border: '1px solid var(--color-hairline)' }}
+                          />
+                          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', color: 'var(--color-ink-45)', marginTop: 6 }}>
+                            1200×628px · will be uploaded with your post
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="home-char-count-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }}>
                   {charCount > 3000 ? (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: '#E8404A' }}>
-                      ⚠ {charCount}/3000 — over LinkedIn limit
+                      âš  {charCount}/3000 â€” over LinkedIn limit
                     </span>
                   ) : charCount > 2700 ? (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-amber)' }}>
@@ -666,7 +850,7 @@ export default function Home() {
                     </span>
                   ) : (
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-ink-45)' }}>
-                      {charCount} characters · edit freely before posting
+                      {charCount} characters Â· edit freely before posting
                     </span>
                   )}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -680,7 +864,7 @@ export default function Home() {
                           opacity: (posting || charCount > 3000) ? 0.6 : 1,
                         }}
                       >
-                        {posting ? 'Posting…' : 'Post to LinkedIn →'}
+                        {posting ? 'Postingâ€¦' : 'Post to LinkedIn â†’'}
                       </button>
                     ) : (
                       <a
@@ -692,7 +876,7 @@ export default function Home() {
                           textDecoration: 'none',
                         }}
                       >
-                        Connect LinkedIn in Account settings →
+                        Connect LinkedIn in Account settings â†’
                       </a>
                     )}
                   </div>
@@ -703,7 +887,7 @@ export default function Home() {
                     <span style={{ width: 5, height: 5, background: 'var(--color-oxblood)', display: 'inline-block' }} />
                     {postError || generateError}
                     {postError.includes('expired') && (
-                      <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>→ Account</a>
+                      <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>â†’ Account</a>
                     )}
                   </p>
                 )}
@@ -712,22 +896,66 @@ export default function Home() {
           )}
 
           {step === 'published' && (
-            <div style={{ maxWidth: 'var(--max-width-preview)', margin: '0 auto', textAlign: 'center', padding: '80px 0' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-green)', marginBottom: 24 }}>
-                ✓ Posted to LinkedIn
+            <div style={{ maxWidth: 'var(--max-width-preview)', margin: '0 auto', padding: '72px 0' }}>
+              {/* H-001: Dominant success signal */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36 }}>
+                <span style={{
+                  width: 48, height: 48, background: 'var(--color-green)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 22, flexShrink: 0,
+                }}>✓</span>
+                <h2 style={{
+                  fontFamily: 'var(--font-serif)', fontWeight: 300, fontSize: 42,
+                  color: 'var(--color-ink)', margin: 0, lineHeight: 1.1,
+                }}>
+                  Published to LinkedIn
+                </h2>
               </div>
+
+              {/* H-003: Summary of what was sent */}
+              {generatedPost && (
+                <div style={{
+                  background: 'var(--color-surface)', border: '1px solid var(--color-hairline)',
+                  padding: '22px 26px', marginBottom: 36,
+                }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
+                    What was posted
+                  </div>
+                  <p style={{
+                    fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65,
+                    color: 'var(--color-ink)', margin: 0, whiteSpace: 'pre-wrap',
+                    maxHeight: 200, overflow: 'hidden',
+                  }}>
+                    {generatedPost.length > 400 ? generatedPost.slice(0, 400) + '…' : generatedPost}
+                  </p>
+                </div>
+              )}
+
               {publishedReady && (
-                <button
-                  type="button"
-                  onClick={() => { setStep('answer'); setIndex(i => Math.min(i + 1, questions.length - 1)) }}
-                  style={{
-                    fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
-                    color: 'var(--color-ink)', background: 'none',
-                    border: '1px solid var(--color-ink)', padding: '0 26px', height: 48, cursor: 'pointer',
-                  }}
-                >
-                  Back to questions
-                </button>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  <button
+                    type=”button”
+                    onClick={() => { setStep('answer'); setGeneratedPost(''); setIndex(i => Math.min(i + 1, questions.length - 1)) }}
+                    style={{
+                      fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                      color: 'var(--color-paper)', background: 'var(--color-oxblood)',
+                      border: '1px solid var(--color-oxblood)', padding: '0 26px', height: 48, cursor: 'pointer',
+                    }}
+                  >
+                    Next question →
+                  </button>
+                  <a
+                    href=”/history”
+                    style={{
+                      fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
+                      color: 'var(--color-ink)', background: 'none',
+                      border: '1px solid var(--color-hairline-2)', padding: '0 22px', height: 48,
+                      display: 'inline-flex', alignItems: 'center', textDecoration: 'none',
+                    }}
+                  >
+                    View history
+                  </a>
+                </div>
               )}
             </div>
           )}

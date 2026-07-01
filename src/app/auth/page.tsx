@@ -17,6 +17,7 @@ export default function AuthPage() {
   const [forgotStep, setForgotStep] = useState<'none' | 'input' | 'sent'>('none')
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -62,7 +63,7 @@ export default function AuthPage() {
     setLoading(false)
   }
 
-  const handleSSO = (provider: 'google' | 'github') => {
+  const handleSSO = (provider: 'google' | 'linkedin_oidc') => {
     window.location.href = `/api/auth/sso/${provider}`
   }
 
@@ -164,7 +165,7 @@ export default function AuthPage() {
           </button>
           <button
             type="button"
-            onClick={() => handleSSO('github')}
+            onClick={() => handleSSO('linkedin_oidc')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
               fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--color-ink)',
@@ -172,13 +173,13 @@ export default function AuthPage() {
             }}
           >
             <span style={{
-              width: 18, height: 18, borderRadius: '50%', background: 'var(--color-ink)', color: 'var(--color-paper)',
+              width: 18, height: 18, background: 'var(--color-linkedin)', color: '#fff',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 700,
+              fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-sans)',
             }}>
-              GH
+              in
             </span>
-            Continue with GitHub
+            Continue with LinkedIn
           </button>
         </div>
 
@@ -298,15 +299,41 @@ export default function AuthPage() {
             </p>
           )}
 
+          {/* B-021: Terms acceptance (signup only) */}
+          {mode === 'signup' && (
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              marginTop: 20, cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={e => setTermsAccepted(e.target.checked)}
+                style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--color-ink-45)', lineHeight: 1.5 }}>
+                I agree to the{' '}
+                <a href="/terms" target="_blank" rel="noopener" style={{ color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                  Terms of Service
+                </a>
+                {' '}and{' '}
+                <a href="/privacy" target="_blank" rel="noopener" style={{ color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                  Privacy Policy
+                </a>
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (mode === 'signup' && !termsAccepted)}
             style={{
               display: 'block', width: '100%', marginTop: 24,
               fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500,
               color: 'var(--color-paper)', background: 'var(--color-oxblood)',
               border: '1px solid var(--color-oxblood)', height: 52,
-              opacity: loading ? 0.6 : 1,
+              opacity: (loading || (mode === 'signup' && !termsAccepted)) ? 0.6 : 1,
+              cursor: (mode === 'signup' && !termsAccepted) ? 'not-allowed' : 'pointer',
             }}
           >
             {loading
@@ -319,7 +346,7 @@ export default function AuthPage() {
           {mode === 'login' ? 'New here? ' : 'Already have an account? '}
           <button
             type="button"
-            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
+            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setTermsAccepted(false) }}
             style={{
               background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 'inherit',
               color: 'var(--color-oxblood)', textDecoration: 'underline', textUnderlineOffset: 3,

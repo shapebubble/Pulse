@@ -42,6 +42,12 @@ export default function AdminPage() {
   const [pwError, setPwError]       = useState('')
   const [pwSuccess, setPwSuccess]   = useState(false)
 
+  // Change email (J-024)
+  const [newEmail, setNewEmail]       = useState('')
+  const [changingEmail, setChangingEmail] = useState(false)
+  const [emailError, setEmailError]   = useState('')
+  const [emailSuccess, setEmailSuccess] = useState(false)
+
   // Export data (J-025)
   const [exporting, setExporting] = useState(false)
 
@@ -164,6 +170,26 @@ export default function AdminPage() {
       setPwError(data.error ?? 'Failed to change password')
     }
     setChangingPw(false)
+  }
+
+  const handleChangeEmail = async () => {
+    setEmailError('')
+    if (!newEmail || !newEmail.includes('@')) { setEmailError('Enter a valid email address'); return }
+    setChangingEmail(true)
+    const res = await fetch('/api/auth/update-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newEmail }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setNewEmail('')
+      setEmailSuccess(true)
+      setTimeout(() => setEmailSuccess(false), 6000)
+    } else {
+      setEmailError(data.error ?? 'Failed to change email')
+    }
+    setChangingEmail(false)
   }
 
   const handleExport = async () => {
@@ -523,6 +549,45 @@ export default function AdminPage() {
                   }}
                 >
                   {changingPw ? 'Updating…' : 'Change password'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Change email (J-024) */}
+          <div style={sectionDivider}>
+            <div style={sectionLabel}>Change email</div>
+            <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--color-ink-45)', margin: '14px 0 18px', maxWidth: '54ch' }}>
+              A confirmation link will be sent to your new email address. Your email changes after you click the link.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 360 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: 'var(--color-ink-45)', marginBottom: 6 }}>
+                  New email address
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleChangeEmail()}
+                  style={inputStyle}
+                  autoComplete="email"
+                  placeholder={userEmail}
+                />
+              </div>
+              {emailError && <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', margin: 0 }}>{emailError}</p>}
+              {emailSuccess && <p style={{ fontSize: 13, color: 'var(--color-green)', margin: 0 }}>Confirmation sent — check your new inbox.</p>}
+              <div>
+                <button
+                  type="button" onClick={handleChangeEmail} disabled={changingEmail}
+                  style={{
+                    fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                    color: 'var(--color-paper)', background: 'var(--color-ink)',
+                    border: '1px solid var(--color-ink)', padding: '0 22px', height: 44,
+                    cursor: 'pointer', opacity: changingEmail ? 0.6 : 1,
+                  }}
+                >
+                  {changingEmail ? 'Sending…' : 'Send confirmation'}
                 </button>
               </div>
             </div>

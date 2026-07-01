@@ -354,6 +354,18 @@ export default function HistoryPage() {
                             {item.generated_post}
                           </p>
 
+                          {/* Analytics placeholder (I-001, I-002, I-003, I-015) */}
+                          {item.status === 'published' && (
+                            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-hairline)' }}>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 10 }}>
+                                Analytics
+                              </div>
+                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)', margin: 0, fontStyle: 'italic' }}>
+                                LinkedIn analytics are not yet available — impressions, reactions, and comments will appear here once enabled.
+                              </p>
+                            </div>
+                          )}
+
                           {/* Retry / Post to LinkedIn button (I-014) */}
                           {canRetry && (
                             <div style={{ marginTop: 20 }}>

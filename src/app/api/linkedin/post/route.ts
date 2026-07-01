@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
-  const { text } = await req.json()
+  const { text, mediaUrn } = await req.json()
 
   if (!text?.trim()) {
     return NextResponse.json({ error: 'No post text provided' }, { status: 400 })
@@ -29,6 +29,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'LinkedIn token expired — reconnect in Account' }, { status: 403 })
   }
 
+  const body = mediaUrn ? {
+    author: profile.linkedin_author_urn,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text },
+        shareMediaCategory: 'IMAGE',
+        media: [{
+          status: 'READY',
+          description: { text: 'Post image' },
+          media: mediaUrn,
+          title: { text: '' },
+        }],
+      },
+    },
+    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+  } : {
+    author: profile.linkedin_author_urn,
+    lifecycleState: 'PUBLISHED',
+    specificContent: {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text },
+        shareMediaCategory: 'NONE',
+      },
+    },
+    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+  }
+
   const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
     method: 'POST',
     headers: {
@@ -36,19 +64,7 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
     },
-    body: JSON.stringify({
-      author:         profile.linkedin_author_urn,
-      lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary:     { text },
-          shareMediaCategory:  'NONE',
-        },
-      },
-      visibility: {
-        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-      },
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!res.ok) {

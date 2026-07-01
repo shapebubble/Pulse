@@ -6,8 +6,8 @@ export async function GET(
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider: providerParam } = await params
-  const provider = providerParam as 'google' | 'github'
-  if (provider !== 'google' && provider !== 'github') {
+  const provider = providerParam as 'google' | 'linkedin_oidc'
+  if (provider !== 'google' && provider !== 'linkedin_oidc') {
     return NextResponse.redirect(new URL('/auth?error=invalid_provider', req.url).toString())
   }
 
