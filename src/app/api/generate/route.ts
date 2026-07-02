@@ -56,7 +56,7 @@ Return only the post text — no preamble, nothing extra.`,
 }
 
 export async function POST(req: NextRequest) {
-  const { answer, question, topic, format = 'question-led' } = await req.json()
+  const { answer, question, topic, format = 'question-led', pastPosts } = await req.json()
 
   if (!answer?.trim()) {
     return NextResponse.json({ error: 'No answer provided' }, { status: 400 })
@@ -70,13 +70,18 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey })
   const promptFn = SYSTEM_PROMPTS[format as keyof typeof SYSTEM_PROMPTS] ?? SYSTEM_PROMPTS['question-led']
 
+  const pastPostsSuffix =
+    pastPosts && pastPosts.length > 0
+      ? `\n\nHere are ${pastPosts.length} examples of their previous LinkedIn posts. Match their voice and style:\n\n${pastPosts.map((p: string, i: number) => `---\nPost ${i + 1}:\n${p}`).join('\n\n')}`
+      : ''
+
   try {
     const msg = await client.messages.create({
       model:      'claude-sonnet-4-6',
       max_tokens: 1500,
       messages: [{
         role:    'user',
-        content: promptFn(topic ?? '', question ?? '', answer),
+        content: promptFn(topic ?? '', question ?? '', answer) + pastPostsSuffix,
       }],
     })
 

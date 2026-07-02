@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   const clientId     = process.env.LINKEDIN_CLIENT_ID
   const redirectUri  = `${process.env.NEXT_PUBLIC_APP_URL}/api/linkedin/callback`
-  const scope        = 'openid profile w_member_social'
+  const scope        = 'openid profile w_member_social r_member_social'
   const state        = Math.random().toString(36).slice(2)
 
   if (!clientId) {
