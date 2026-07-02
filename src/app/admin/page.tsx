@@ -10,6 +10,7 @@ interface Profile {
   topics: string[]
   linkedin_access_token: string | null
   linkedin_token_expires_at: string | null
+  topic_presets?: Array<{ name: string; topics: string[] }> | null
 }
 
 export default function AdminPage() {
@@ -53,6 +54,23 @@ export default function AdminPage() {
   const [newTopicInput, setNewTopicInput] = useState('')
   const [topicInputError, setTopicInputError] = useState('')
 
+  // J-005: Topic autocomplete
+  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // J-006: AI spelling correction
+  const [topicCorrection, setTopicCorrection] = useState<string | null>(null)
+  const [checkingSpelling, setCheckingSpelling] = useState(false)
+
+  // J-016-J-020: Topic presets
+  const [presets, setPresets] = useState<Array<{ name: string; topics: string[] }>>([])
+  const [newPresetName, setNewPresetName] = useState('')
+  const [savingPreset, setSavingPreset] = useState(false)
+  const [showSavePreset, setShowSavePreset] = useState(false)
+
+  // J-027: Queued posts warning on disconnect
+  const [queuedPostCount, setQueuedPostCount] = useState(0)
+
   // Export data (J-025)
   const [exporting, setExporting] = useState(false)
 
@@ -72,7 +90,7 @@ export default function AdminPage() {
       const [{ data }, { data: qRows }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at, topic_presets')
           .eq('id', user.id)
           .single(),
         supabase.from('questions').select('topic'),
@@ -84,6 +102,7 @@ export default function AdminPage() {
 
       if (data) {
         setProfile(data)
+        setPresets(data.topic_presets ?? [])
         const saved: string[] = data.topics ?? []
         // Filter to only topics that exist in the questions table so size checks work correctly
         const validSaved = saved.filter(t => topicsFromDb.includes(t))
@@ -104,7 +123,7 @@ export default function AdminPage() {
         // Reload profile to show connected state
         const { data: refreshed } = await supabase
           .from('profiles')
-          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at, topic_presets')
           .eq('id', user.id)
           .single()
         if (refreshed) {
@@ -160,6 +179,91 @@ export default function AdminPage() {
       await supabase.from('profiles').update({ topics: Array.from(next) }).eq('id', user.id)
     }
     setSavingTopics(false)
+  }
+
+  // J-005: Autocomplete handler
+  const handleTopicInputChange = (val: string) => {
+    setNewTopicInput(val)
+    setTopicInputError('')
+    if (val.trim().length > 0) {
+      const matches = allTopics
+        .filter(t => t.toLowerCase().includes(val.toLowerCase()) && !activeTopics.has(t))
+        .slice(0, 5)
+      setTopicSuggestions(matches)
+      setShowSuggestions(matches.length > 0)
+    } else {
+      setShowSuggestions(false)
+    }
+  }
+
+  // J-006: Spelling-check-then-add
+  const checkAndAdd = async () => {
+    const topic = newTopicInput.trim()
+    if (!topic) return
+    if (allTopics.includes(topic) || activeTopics.has(topic)) {
+      setTopicInputError('Topic already exists')
+      return
+    }
+    // If we already have a correction showing, just add the original
+    if (topicCorrection !== null) {
+      addTopic()
+      setTopicCorrection(null)
+      return
+    }
+    setCheckingSpelling(true)
+    try {
+      const res = await fetch('/api/topics/correct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      })
+      const data = await res.json()
+      if (data.corrected && data.corrected.toLowerCase() !== topic.toLowerCase()) {
+        setTopicCorrection(data.corrected)
+      } else {
+        addTopic()
+      }
+    } catch {
+      addTopic()
+    }
+    setCheckingSpelling(false)
+  }
+
+  // J-016-J-020: Preset helpers
+  const savePreset = async () => {
+    if (!newPresetName.trim()) return
+    const preset = { name: newPresetName.trim(), topics: Array.from(activeTopics) }
+    const next = [...presets, preset]
+    setPresets(next)
+    setNewPresetName('')
+    setShowSavePreset(false)
+    setSavingPreset(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ topic_presets: next }).eq('id', user.id)
+    }
+    setSavingPreset(false)
+  }
+
+  const loadPreset = async (preset: { name: string; topics: string[] }) => {
+    const validTopics = preset.topics.filter(t => allTopics.includes(t) || activeTopics.has(t))
+    const next = new Set(validTopics.length > 0 ? validTopics : [preset.topics[0]])
+    setActiveTopics(next)
+    setSavingTopics(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ topics: Array.from(next) }).eq('id', user.id)
+    }
+    setSavingTopics(false)
+  }
+
+  const deletePreset = async (idx: number) => {
+    const next = presets.filter((_, i) => i !== idx)
+    setPresets(next)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('profiles').update({ topic_presets: next }).eq('id', user.id)
+    }
   }
 
   const handleDisconnect = async () => {
@@ -430,7 +534,18 @@ export default function AdminPage() {
                 <div className="account-li-actions">
                   {!showDisconnectConfirm ? (
                     <button
-                      type="button" onClick={() => setShowDisconnectConfirm(true)}
+                      type="button" onClick={async () => {
+                        setShowDisconnectConfirm(true)
+                        const { data: { user } } = await supabase.auth.getUser()
+                        if (user) {
+                          const { count } = await supabase
+                            .from('posts')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', user.id)
+                            .eq('status', 'queued')
+                          setQueuedPostCount(count ?? 0)
+                        }
+                      }}
                       style={{
                         fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
                         color: 'var(--color-ink)', background: 'none',
@@ -441,7 +556,14 @@ export default function AdminPage() {
                     </button>
                   ) : (
                     <div className="account-li-confirm-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account. Are you sure?</span>
+                      <div>
+                        <span style={{ fontSize: 13, color: 'var(--color-ink-45)' }}>This will remove Pulse's access to your LinkedIn account. Are you sure?</span>
+                        {queuedPostCount > 0 && (
+                          <div style={{ fontSize: 13, color: 'var(--color-oxblood)', marginTop: 6 }}>
+                            ⚠ You have {queuedPostCount} queued post{queuedPostCount !== 1 ? 's' : ''}. Disconnecting will prevent them from being sent.
+                          </div>
+                        )}
+                      </div>
                       <button
                         type="button" onClick={handleDisconnect} disabled={disconnecting}
                         style={{
@@ -532,40 +654,205 @@ export default function AdminPage() {
               </p>
             )}
 
-            {/* J-004: Add new topic input */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 18, maxWidth: 360 }}>
-              <input
-                type="text"
-                value={newTopicInput}
-                onChange={e => { setNewTopicInput(e.target.value); setTopicInputError('') }}
-                onKeyDown={e => e.key === 'Enter' && addTopic()}
-                placeholder="Add a topic…"
-                maxLength={60}
-                style={{
-                  flex: 1, height: 40, padding: '0 12px',
-                  fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
-                  border: '1px solid var(--color-hairline-3)', background: 'var(--color-paper)',
-                  color: 'var(--color-ink)', outline: 'none',
-                }}
-              />
-              <button
-                type="button" onClick={addTopic} disabled={!newTopicInput.trim() || savingTopics}
-                style={{
-                  height: 40, padding: '0 16px',
-                  fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em',
-                  textTransform: 'uppercase', background: 'var(--color-ink)', color: 'var(--color-paper)',
-                  border: 'none', cursor: newTopicInput.trim() ? 'pointer' : 'not-allowed',
-                  opacity: newTopicInput.trim() ? 1 : 0.4,
-                }}
-              >
-                Add
-              </button>
+            {/* J-004/J-005: Add new topic input with autocomplete */}
+            <div style={{ marginTop: 18, maxWidth: 360 }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={newTopicInput}
+                    onChange={e => handleTopicInputChange(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && checkAndAdd()}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    placeholder="Add a topic…"
+                    maxLength={60}
+                    style={{
+                      flex: 1, height: 40, padding: '0 12px',
+                      fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
+                      border: '1px solid var(--color-hairline-3)', background: 'var(--color-paper)',
+                      color: 'var(--color-ink)', outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button" onClick={checkAndAdd} disabled={!newTopicInput.trim() || savingTopics || checkingSpelling}
+                    style={{
+                      height: 40, padding: '0 16px',
+                      fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', background: 'var(--color-ink)', color: 'var(--color-paper)',
+                      border: 'none', cursor: newTopicInput.trim() ? 'pointer' : 'not-allowed',
+                      opacity: newTopicInput.trim() ? 1 : 0.4,
+                    }}
+                  >
+                    {checkingSpelling ? '…' : 'Add'}
+                  </button>
+                </div>
+                {showSuggestions && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0,
+                    background: 'var(--color-surface)', border: '1px solid var(--color-hairline)',
+                    zIndex: 50, marginTop: 2,
+                  }}>
+                    {topicSuggestions.map(s => (
+                      <button
+                        key={s} type="button"
+                        onClick={() => {
+                          setNewTopicInput(s)
+                          setShowSuggestions(false)
+                        }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '8px 12px',
+                          fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--color-ink)',
+                          borderBottom: '1px solid var(--color-hairline)',
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {topicInputError && (
+                <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', margin: '6px 0 0' }}>
+                  {topicInputError}
+                </p>
+              )}
+              {/* J-006: Spelling correction suggestion */}
+              {topicCorrection && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-ink-45)' }}>
+                    Did you mean:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTopicInput(topicCorrection)
+                      setTopicCorrection(null)
+                      addTopic()
+                    }}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
+                      background: 'var(--color-ox-wash)', border: '1px solid var(--color-ox-border)',
+                      color: 'var(--color-oxblood)', padding: '3px 10px', cursor: 'pointer',
+                    }}
+                  >
+                    {topicCorrection}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTopicCorrection(null); addTopic() }}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-45)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    Keep as-is
+                  </button>
+                </div>
+              )}
             </div>
-            {topicInputError && (
-              <p role="alert" style={{ fontSize: 13, color: 'var(--color-oxblood)', margin: '6px 0 0' }}>
-                {topicInputError}
-              </p>
+
+            {/* J-016-J-020: Topic presets */}
+            {presets.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 12 }}>
+                  Saved presets
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {presets.map((preset, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 14px', background: 'var(--color-surface)',
+                      border: '1px solid var(--color-hairline)',
+                    }}>
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}>
+                          {preset.name}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', color: 'var(--color-ink-45)', marginTop: 2 }}>
+                          {preset.topics.join(' · ')}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          type="button" onClick={() => loadPreset(preset)}
+                          style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                            padding: '4px 12px', background: 'none',
+                            border: '1px solid var(--color-ink)', color: 'var(--color-ink)', cursor: 'pointer',
+                          }}
+                        >
+                          Load
+                        </button>
+                        <button
+                          type="button" onClick={() => deletePreset(idx)}
+                          style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 11,
+                            background: 'none', border: 'none', color: 'var(--color-ink-45)', cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* Save current selection as preset */}
+            <div style={{ marginTop: 16 }}>
+              {!showSavePreset ? (
+                <button
+                  type="button" onClick={() => setShowSavePreset(true)}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+                    background: 'none', border: 'none', color: 'var(--color-ink-45)', cursor: 'pointer', padding: 0,
+                    textDecoration: 'underline', textUnderlineOffset: 3,
+                  }}
+                >
+                  + Save current selection as preset
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, maxWidth: 360 }}>
+                  <input
+                    type="text"
+                    value={newPresetName}
+                    onChange={e => setNewPresetName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && savePreset()}
+                    placeholder="Preset name…"
+                    maxLength={40}
+                    autoFocus
+                    style={{
+                      flex: 1, height: 36, padding: '0 10px',
+                      fontFamily: 'var(--font-sans)', fontSize: 13,
+                      border: '1px solid var(--color-hairline-3)', background: 'var(--color-paper)',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button" onClick={savePreset} disabled={!newPresetName.trim() || savingPreset}
+                    style={{
+                      height: 36, padding: '0 14px',
+                      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                      background: 'var(--color-ink)', color: 'var(--color-paper)', border: 'none',
+                      cursor: newPresetName.trim() ? 'pointer' : 'not-allowed',
+                      opacity: newPresetName.trim() ? 1 : 0.4,
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button" onClick={() => { setShowSavePreset(false); setNewPresetName('') }}
+                    style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--color-ink-45)', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Change password (J-023) */}
