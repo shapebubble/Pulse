@@ -18,7 +18,7 @@ interface Post {
   answer: string
   generated_post: string
   format: string
-  status: 'new' | 'draft' | 'done' | 'published' | 'skipped' | 'failed'
+  status: 'new' | 'draft' | 'done' | 'published' | 'skipped' | 'failed' | 'queued'
   linkedin_post_id?: string
 }
 
@@ -40,6 +40,7 @@ function statusDot(status: Post['status'], isActive: boolean) {
   if (status === 'draft')      return { ...base, background: 'var(--color-amber)' }
   if (status === 'done')       return { ...base, background: 'var(--color-green)' }
   if (status === 'published')  return { ...base, background: 'var(--color-green)' }
+  if (status === 'queued')     return { ...base, background: '#0077B5', opacity: 0.6 }  // LinkedIn blue, semi
   return { ...base, border: '1px solid var(--color-hairline-3)' }
 }
 
@@ -71,6 +72,7 @@ export default function Home() {
   const [showCustomQ, setShowCustomQ] = useState(false)
   const [customQText, setCustomQText] = useState('')
   const [customQuestion, setCustomQuestion] = useState<Question | null>(null)
+  const [queuedSuccess, setQueuedSuccess] = useState(false)
 
   // Image builder state
   const [addImage, setAddImage]         = useState(false)
@@ -92,6 +94,7 @@ export default function Home() {
   const q    = questions[index]
   const post = q ? (posts.get(q.id) ?? { question_id: q.id, answer: '', generated_post: '', format: 'question-led', status: 'new' as const }) : null
   const activeQuestion = customQuestion ?? q
+  const wordCount = answer.trim() ? answer.trim().split(/\s+/).filter(Boolean).length : 0
 
   useEffect(() => {
     async function load() {
@@ -162,6 +165,7 @@ export default function Home() {
     setGenerateError('')
     setPolishError('')
     setRegenPending(false)
+    setQueuedSuccess(false)
   }, [index, questions])
 
   const savePost = useCallback(async (fields: Partial<Post> & { question_id: string }) => {
@@ -406,9 +410,13 @@ export default function Home() {
     setGenerateError('')
     try {
       const aq = activeQuestion ?? q
+      const pastPosts = Array.from(posts.values())
+        .filter(p => (p.status === 'published' || p.status === 'done') && p.generated_post)
+        .slice(0, 3)
+        .map(p => p.generated_post)
       const res  = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer, question: aq.text, topic: aq.topic, format }),
+        body: JSON.stringify({ answer, question: aq.text, topic: aq.topic, format, pastPosts }),
       })
       const data = await res.json()
       if (data.post) {
@@ -463,7 +471,9 @@ export default function Home() {
       } else if (res.status === 403 && data.error?.includes('expired')) {
         setPostError('LinkedIn connection expired — reconnect in Account')
       } else {
-        setPostError('Failed to post — try again')
+        setPostError(mediaUrn
+          ? 'Image was uploaded but post text failed — click Post again to retry (image is ready)'
+          : 'Failed to post — try again')
         await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'failed' })
       }
     } catch {
@@ -697,6 +707,12 @@ export default function Home() {
                 }}
               />
 
+              {answer.trim() && wordCount < 5 && (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)', marginTop: 8 }}>
+                  {wordCount}/5 words minimum to elaborate
+                </p>
+              )}
+
               {/* Format selector + action buttons */}
               <div className="home-format-row" style={{ marginTop: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }}>
@@ -732,12 +748,12 @@ export default function Home() {
                   </button>
                   <button
                     type="button" onClick={elaboratePost}
-                    disabled={!answer.trim() || generating || polishing}
+                    disabled={!answer.trim() || wordCount < 5 || generating || polishing}
                     style={{
                       fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500,
                       color: 'var(--color-ink)', background: 'none',
                       border: '1px solid var(--color-ink)', padding: '0 22px', height: 48,
-                      opacity: (!answer.trim() || generating || polishing) ? 0.35 : 1,
+                      opacity: (!answer.trim() || wordCount < 5 || generating || polishing) ? 0.35 : 1,
                     }}
                   >
                     {generating ? 'Elaborating…' : 'Elaborate with AI ✦'}
@@ -987,6 +1003,25 @@ export default function Home() {
                     >
                       {polishingPost ? 'Polishing…' : 'Polish ✦'}
                     </button>
+                    {linkedInConnected && (
+                      <button
+                        type="button"
+                        disabled={posting || !generatedPost.trim()}
+                        onClick={async () => {
+                          if (!q) return
+                          await savePost({ question_id: q.id, answer, generated_post: generatedPost, format, status: 'queued' })
+                          setQueuedSuccess(true)
+                        }}
+                        style={{
+                          fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+                          color: 'var(--color-linkedin)', background: 'none',
+                          border: '1px solid var(--color-linkedin)', padding: '0 20px', height: 48,
+                          opacity: (posting || !generatedPost.trim()) ? 0.45 : 1,
+                        }}
+                      >
+                        Queue for later
+                      </button>
+                    )}
                     {linkedInConnected ? (
                       <button
                         type="button" onClick={postToLinkedIn} disabled={posting || charCount > 3000 || !generatedPost.trim()}
@@ -1027,6 +1062,11 @@ export default function Home() {
                     {postError.includes('expired') && (
                       <a href="/admin" style={{ color: 'var(--color-oxblood)', marginLeft: 4 }}>→ Account</a>
                     )}
+                  </p>
+                )}
+                {queuedSuccess && (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em', color: 'var(--color-linkedin)', marginTop: 12 }}>
+                    ✓ Queued — post it from History when ready
                   </p>
                 )}
               </div>

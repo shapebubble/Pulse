@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { Nav } from '@/components/Nav'
 import { createClient } from '@/lib/supabase-browser'
 
-type Status = 'new' | 'draft' | 'done' | 'published' | 'skipped'
+type Status = 'new' | 'draft' | 'done' | 'published' | 'skipped' | 'queued' | 'failed'
 
 interface HistoryItem {
   post_id: string
+  linkedin_post_id: string | null
   question_id: string
   question_text: string
   topic: string
@@ -48,6 +49,26 @@ function StatusBadge({ status }: { status: Status }) {
       Draft
     </span>
   )
+  if (status === 'queued') return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', border: '1px solid #0077B5', color: '#0077B5',
+    }}>
+      <span style={{ width: 7, height: 7, background: '#0077B5', display: 'inline-block', opacity: 0.6 }} />
+      Queued
+    </span>
+  )
+  if (status === 'failed') return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '4px 10px', border: '1px solid var(--color-oxblood)', color: 'var(--color-oxblood)',
+    }}>
+      <span style={{ width: 7, height: 7, background: 'var(--color-oxblood)', display: 'inline-block' }} />
+      Failed
+    </span>
+  )
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -75,6 +96,7 @@ export default function HistoryPage() {
   const [retrying, setRetrying]       = useState<string | null>(null)
   const [retryError, setRetryError]   = useState<Record<string, string>>({})
   const [searchFocused, setSearchFocused] = useState(false)
+  const [analytics, setAnalytics]     = useState<Record<string, { likes: number | null; comments: number | null; loading: boolean }>>({})
 
   useEffect(() => {
     async function load() {
@@ -90,6 +112,7 @@ export default function HistoryPage() {
           generated_post,
           format,
           status,
+          linkedin_post_id,
           created_at,
           questions (id, text, topic, week_start)
         `)
@@ -99,6 +122,7 @@ export default function HistoryPage() {
       if (posts) {
         const mapped: HistoryItem[] = posts.map((p: any) => ({
           post_id:        p.id,
+          linkedin_post_id: p.linkedin_post_id ?? null,
           question_id:    p.question_id,
           question_text:  p.questions?.text ?? '',
           topic:          p.questions?.topic ?? '',
@@ -284,12 +308,30 @@ export default function HistoryPage() {
           <div style={{ marginTop: 32 }}>
             {displayed.map(item => {
               const isOpen = expanded === item.post_id
-              const canRetry = item.status !== 'published' && item.status !== 'new' && item.status !== 'skipped' && !!item.generated_post
+              const canRetry = ['draft', 'done', 'queued', 'failed'].includes(item.status) && !!item.generated_post
               return (
                 <div key={item.post_id} style={{ borderBottom: '1px solid var(--color-hairline)' }}>
                   <button
                     type="button"
-                    onClick={() => setExpanded(isOpen ? null : item.post_id)}
+                    onClick={() => {
+                      const next = isOpen ? null : item.post_id
+                      setExpanded(next)
+                      if (next && item.status === 'published' && item.linkedin_post_id && !analytics[item.post_id]) {
+                        setAnalytics(prev => ({ ...prev, [item.post_id]: { likes: null, comments: null, loading: true } }))
+                        fetch(`/api/linkedin/analytics?postId=${encodeURIComponent(item.linkedin_post_id!)}`)
+                          .then(r => r.ok ? r.json() : null)
+                          .then(d => {
+                            if (d) {
+                              setAnalytics(prev => ({ ...prev, [item.post_id]: { likes: d.likes, comments: d.comments, loading: false } }))
+                            } else {
+                              setAnalytics(prev => ({ ...prev, [item.post_id]: { likes: null, comments: null, loading: false } }))
+                            }
+                          })
+                          .catch(() => {
+                            setAnalytics(prev => ({ ...prev, [item.post_id]: { likes: null, comments: null, loading: false } }))
+                          })
+                      }
+                    }}
                     aria-expanded={isOpen}
                     style={{
                       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
@@ -354,15 +396,45 @@ export default function HistoryPage() {
                             {item.generated_post}
                           </p>
 
-                          {/* Analytics placeholder (I-001, I-002, I-003, I-015) */}
+                          {/* Analytics (E-001) */}
                           {item.status === 'published' && (
                             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-hairline)' }}>
                               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-ink-45)', marginBottom: 10 }}>
                                 Analytics
                               </div>
-                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--color-ink-45)', margin: 0, fontStyle: 'italic' }}>
-                                LinkedIn analytics are not yet available — impressions, reactions, and comments will appear here once enabled.
-                              </p>
+                              {!item.linkedin_post_id ? (
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-45)', margin: 0, fontStyle: 'italic' }}>
+                                  Analytics not available for this post.
+                                </p>
+                              ) : analytics[item.post_id]?.loading ? (
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-45)', margin: 0, letterSpacing: '0.1em' }}>
+                                  Loading…
+                                </p>
+                              ) : analytics[item.post_id] ? (
+                                <div style={{ display: 'flex', gap: 24 }}>
+                                  <div>
+                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-ink-45)' }}>Likes</div>
+                                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)', marginTop: 4 }}>
+                                      {analytics[item.post_id].likes ?? '—'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-ink-45)' }}>Comments</div>
+                                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--color-ink)', marginTop: 4 }}>
+                                      {analytics[item.post_id].comments ?? '—'}
+                                    </div>
+                                  </div>
+                                  {analytics[item.post_id].likes === null && analytics[item.post_id].comments === null && (
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-45)', margin: 0, fontStyle: 'italic', alignSelf: 'center' }}>
+                                      Analytics require reconnecting LinkedIn with the latest permissions.
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-45)', margin: 0, fontStyle: 'italic' }}>
+                                  Click to load analytics.
+                                </p>
+                              )}
                             </div>
                           )}
 
@@ -383,8 +455,32 @@ export default function HistoryPage() {
                                   display: 'inline-flex', alignItems: 'center',
                                 }}
                               >
-                                {retrying === item.post_id ? 'Posting…' : 'Post to LinkedIn'}
+                                {retrying === item.post_id ? 'Posting…' : item.status === 'queued' ? 'Post now →' : 'Post to LinkedIn'}
                               </button>
+                              {item.status === 'queued' && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    await fetch('/api/linkedin/queue', {
+                                      method: 'DELETE',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ postId: item.post_id }),
+                                    })
+                                    setItems(prev => prev.map(i =>
+                                      i.post_id === item.post_id ? { ...i, status: 'done' as Status } : i
+                                    ))
+                                  }}
+                                  style={{
+                                    height: 40, padding: '0 16px', marginLeft: 8,
+                                    background: 'none', border: '1px solid var(--color-hairline-3)',
+                                    fontFamily: 'var(--font-sans)', fontSize: 14,
+                                    color: 'var(--color-ink-45)', cursor: 'pointer',
+                                  }}
+                                >
+                                  Remove from queue
+                                </button>
+                              )}
                               {retryError[item.post_id] && (
                                 <p style={{
                                   fontFamily: 'var(--font-sans)', fontSize: 13,
