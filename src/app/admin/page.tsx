@@ -160,8 +160,8 @@ export default function AdminPage() {
     setSavingTopics(false)
   }
 
-  const addTopic = async () => {
-    const topic = newTopicInput.trim()
+  const addTopic = async (topicOverride?: string) => {
+    const topic = (topicOverride !== undefined ? topicOverride : newTopicInput).trim()
     if (!topic) return
     if (allTopics.includes(topic) || activeTopics.has(topic)) {
       setTopicInputError('Topic already exists')
@@ -728,9 +728,9 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setNewTopicInput(topicCorrection)
+                      const corrected = topicCorrection
                       setTopicCorrection(null)
-                      addTopic()
+                      addTopic(corrected ?? undefined)
                     }}
                     style={{
                       fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
