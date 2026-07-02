@@ -87,13 +87,20 @@ export default function AdminPage() {
 
       setUserEmail(user.email ?? '')
 
-      const [{ data }, { data: qRows }] = await Promise.all([
+      const [{ data }, { data: qRows }, { data: presetsRow }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at, topic_presets')
+          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
           .eq('id', user.id)
           .single(),
         supabase.from('questions').select('topic'),
+        // topic_presets loaded separately so a missing column doesn't break the whole profile query
+        supabase
+          .from('profiles')
+          .select('topic_presets')
+          .eq('id', user.id)
+          .single()
+          .then(r => r.error?.code === '42703' ? { data: null, error: r.error } : r),
       ])
 
       // Build available topics from questions table, sorted alphabetically
@@ -101,8 +108,8 @@ export default function AdminPage() {
       setAllTopics(topicsFromDb)
 
       if (data) {
-        setProfile(data)
-        setPresets(data.topic_presets ?? [])
+        setProfile({ ...data, topic_presets: presetsRow?.topic_presets ?? null })
+        setPresets((presetsRow?.topic_presets as Array<{ name: string; topics: string[] }>) ?? [])
         const saved: string[] = data.topics ?? []
         // Filter to only topics that exist in the questions table so size checks work correctly
         const validSaved = saved.filter(t => topicsFromDb.includes(t))
@@ -121,13 +128,21 @@ export default function AdminPage() {
       if (params.get('li_connected')) {
         window.history.replaceState({}, '', '/admin')
         // Reload profile to show connected state
-        const { data: refreshed } = await supabase
-          .from('profiles')
-          .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at, topic_presets')
-          .eq('id', user.id)
-          .single()
+        const [{ data: refreshed }, { data: refreshedPresets }] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('full_name, topics, linkedin_access_token, linkedin_token_expires_at')
+            .eq('id', user.id)
+            .single(),
+          supabase
+            .from('profiles')
+            .select('topic_presets')
+            .eq('id', user.id)
+            .single()
+            .then(r => r.error?.code === '42703' ? { data: null, error: r.error } : r),
+        ])
         if (refreshed) {
-          setProfile(refreshed)
+          setProfile({ ...refreshed, topic_presets: refreshedPresets?.topic_presets ?? null })
           if (refreshed.linkedin_access_token && (!refreshed.linkedin_token_expires_at || new Date(refreshed.linkedin_token_expires_at) > new Date())) {
             fetch('/api/linkedin/profile')
               .then(r => r.ok ? r.json() : null)
